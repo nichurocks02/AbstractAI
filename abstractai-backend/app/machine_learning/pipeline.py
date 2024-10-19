@@ -2,10 +2,13 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import euclidean_distances
 
+import sys
+sys.path.append("../../../app/")
 
 
 # Function to load and preprocess the data
 def load_and_preprocess_data(file_path: str):
+    print(file_path)
     df = pd.read_csv(file_path)
     df.columns = df.iloc[0]
     df = df[1:]
@@ -101,9 +104,9 @@ def map_user_input_to_normalized(user_input, df, column_name):
     return min_val + user_input * (max_val - min_val)
 
 
-pre = load_and_preprocess_data("model_info/models_2024_aug.csv")
+#pre = load_and_preprocess_data("model_info/models_2024_aug.csv")
 
-
+'''
 user_input = {
     'Cost': 0.1,           # User input between 0 and 1
     'Performance': 0.8,    # User input between 0 and 1
@@ -114,3 +117,4 @@ user_input = {
 
 p = predict_model(user_input,pre)
 print(p)
+'''

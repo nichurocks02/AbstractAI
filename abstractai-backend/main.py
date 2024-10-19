@@ -4,7 +4,7 @@ import requests
 from jose import jwt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session as SessionType
-from app.db.models import Base, User, APIKey, Wallet, APIKeyOut
+from app.db.models import Base, User, APIKey, Wallet
 from app.utility.utility import generate_unique_api_key, cost_per_query  # Ensure this function is defined
 from datetime import datetime
 from dotenv import load_dotenv
@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from transformers import GPT2Tokenizer
 from app.machine_learning.pipeline import predict_model,load_and_preprocess_data
 load_dotenv()
+
 
 # Initialize Stripe API key
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -62,7 +63,7 @@ class APIKeyOut(BaseModel):
 
 global preprocessed_data
 # Load preprocessed data (you can call this during app startup or lazily during first request)
-preprocessed_file_path = "app/machine_learning/model_info/models_2024_aug.csv"
+preprocessed_file_path = "./app/machine_learning/model_info/models_2024_aug.csv"
 preprocessed_data = load_and_preprocess_data(preprocessed_file_path)
 
 
