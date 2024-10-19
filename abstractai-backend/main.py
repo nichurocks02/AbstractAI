@@ -159,7 +159,7 @@ async def generate_api_key_endpoint(api_name: str, request: Request, db: Session
         raise HTTPException(status_code=400, detail="API name already exists for this user")
 
     # Generate API key and deduct from wallet
-    api_key_value = generate_unique_api_key(length=32, db=db)
+    api_key_value = generate_unique_api_key()
     api_key = APIKey(
         key=api_key_value,
         user_id=user.id,
