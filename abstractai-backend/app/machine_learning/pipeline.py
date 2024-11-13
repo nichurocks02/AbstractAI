@@ -1,12 +1,10 @@
+# app/machine_learning/pipeline.py
+
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import euclidean_distances
+from app.utility.utility import map_user_input_to_normalized  # Move this function to utility.py
 
-import sys
-sys.path.append("../../../app/")
-
-
-# Function to load and preprocess the data
 def load_and_preprocess_data(file_path: str):
     print(file_path)
     df = pd.read_csv(file_path)
@@ -64,9 +62,9 @@ def predict_model(user_input, preprocessed_data):
     # Features to compare
     features = mdf[['Cost', 'Performance', 'latency']]
     user_input_normalized = {
-    'Cost': map_user_input_to_normalized(user_input['Cost'], mdf, 'Cost'),
-    'Performance': map_user_input_to_normalized(user_input['Performance'], mdf, 'Performance'),
-    'latency': map_user_input_to_normalized(user_input['latency'], mdf, 'latency')
+        'Cost': map_user_input_to_normalized(user_input['Cost'], mdf, 'Cost'),
+        'Performance': map_user_input_to_normalized(user_input['Performance'], mdf, 'Performance'),
+        'latency': map_user_input_to_normalized(user_input['latency'], mdf, 'latency')
     }
     # Convert user input to DataFrame
     user_input_df = pd.DataFrame([user_input_normalized], columns=['Cost', 'Performance', 'latency'])
@@ -81,14 +79,12 @@ def predict_model(user_input, preprocessed_data):
     # top_3_models = top_3_models.drop(columns=["Index\nNormalized avg", "Chatbot Arena", "MMLU", "MT Bench", "HumanEval"])
     # print(mdf['Model','Cost','Performance','latency'])
     final_df = pd.DataFrame({
-    'Model': top_3_models['Model'],
-    'Similarity': top_3_models['Similarity'],
-    'InputCost': top_3_models['Model'].apply(lambda model: input_output_costs[input_output_costs['Model'] == model]['InputCost'].values[0]),
-    'OutputCost': top_3_models['Model'].apply(lambda model: input_output_costs[input_output_costs['Model'] == model]['OutputCost'].values[0])
+        'Model': top_3_models['Model'],
+        'Similarity': top_3_models['Similarity'],
+        'InputCost': top_3_models['Model'].apply(lambda model: input_output_costs[input_output_costs['Model'] == model]['InputCost'].values[0]),
+        'OutputCost': top_3_models['Model'].apply(lambda model: input_output_costs[input_output_costs['Model'] == model]['OutputCost'].values[0])
     })    
     return final_df
-
-
 
 def map_user_input_to_normalized(user_input, df, column_name):
     """
@@ -103,18 +99,8 @@ def map_user_input_to_normalized(user_input, df, column_name):
     max_val = df[column_name].max()
     return min_val + user_input * (max_val - min_val)
 
-
-#pre = load_and_preprocess_data("model_info/models_2024_aug.csv")
-
-'''
-user_input = {
-    'Cost': 0.1,           # User input between 0 and 1
-    'Performance': 0.8,    # User input between 0 and 1
-    'latency': 1         # User input between 0 and 1
-}
-
-
-
-p = predict_model(user_input,pre)
-print(p)
-'''
+def send_query_to_model(user_query: str, predicted_model: pd.DataFrame) -> str:
+    """Send the user query to the predicted model and get the response."""
+    # Implement the logic to interact with your ML model
+    # For demonstration, return a placeholder response
+    return "Model response based on the query."
