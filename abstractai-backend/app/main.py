@@ -3,6 +3,8 @@
 from fastapi import FastAPI, Request, HTTPException
 from dotenv import load_dotenv
 import os
+import sys
+sys.path.append("../")
 from app.db.models import Base
 from app.db.database import engine
 from app.routes.auth import router as auth_router

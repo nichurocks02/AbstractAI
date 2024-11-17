@@ -4,7 +4,7 @@ from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime,Te
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
-
+from app.db.database import engine 
 Base = declarative_base()
 
 # User model for storing user information
@@ -19,7 +19,7 @@ class User(Base):
     # One-to-one relationship with Wallet
     wallet = relationship("Wallet", uselist=False, back_populates="user")
     api_keys = relationship("APIKey", back_populates="user")
-
+    query_logs = relationship("QueryLog", back_populates="user")
 # APIKey model with proper relationship
 class APIKey(Base):
     __tablename__ = "api_keys"
