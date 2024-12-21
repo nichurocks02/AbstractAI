@@ -1,0 +1,42 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: otterflow-backend/Dockerfile.backend  # Path to the FastAPI Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./otterflow-backend:/app  # Live code reload for FastAPI
+    env_file:
+      - .env  # Automatically loads environment variables from the .env file
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: otterflow-frontend/Dockerfile.frontend  # Path to the Next.js Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./otterflow-frontend:/app  # Live code reload for Next.js
+    env_file:
+      - .env  # Automatically loads environment variables from the .env file
+    environment:
+      - REACT_APP_BACKEND_URL=http://backend:8000
+    networks:
+      - app-network
+
+  db:
+    image: postgres:latest  # Or your preferred DB image
+    env_file:
+      - .env  # Automatically loads environment variables from the .env file
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+

@@ -11,6 +11,18 @@ from app.routes.auth import router as auth_router
 from app.routes.wallet import router as wallet_router
 from app.routes.api_keys import router as api_keys_router
 from app.routes.queries import router as queries_router
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+# Allow all origins (or adjust to your needs)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
+)
 
 # Load environment variables from .env file
 load_dotenv()
