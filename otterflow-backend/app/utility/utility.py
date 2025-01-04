@@ -71,3 +71,23 @@ def map_user_input_to_normalized(user_input, df, column_name):
     min_val = df[column_name].min()
     max_val = df[column_name].max()
     return min_val + user_input * (max_val - min_val)
+
+
+import random
+
+def generate_initials_avatar(name: str) -> str:
+    initials = "".join([word[0].upper() for word in name.split()])
+    colors = [
+        "#FF5733", "#33FF57", "#3357FF", "#FF33A8", "#FFC133", "#A833FF", "#33FFF4"
+    ]  # Add more colors if needed
+    bg_color = random.choice(colors)
+
+    svg = f"""
+    <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+        <rect width="100" height="100" fill="{bg_color}" />
+        <text x="50%" y="50%" font-size="40" fill="#FFF" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif">{initials}</text>
+    </svg>
+    """
+    return svg
+
+

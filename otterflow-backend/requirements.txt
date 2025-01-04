@@ -30,6 +30,7 @@ httpx-sse
 huggingface-hub
 idna
 injector
+itsdangerous
 jiter
 joblib
 jsonpatch

@@ -1,6 +1,7 @@
 # app/main.py
 
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 import os
 import sys
@@ -12,8 +13,14 @@ from app.routes.wallet import router as wallet_router
 from app.routes.api_keys import router as api_keys_router
 from app.routes.queries import router as queries_router
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
+# Mount the directory as a static file route
+upload_dir = "uploaded_avatars"
+os.makedirs(upload_dir, exist_ok=True)  # Ensure the directory exists
 app = FastAPI()
+# Mount the uploaded_avatars directory
+app.mount("/uploaded_avatars", StaticFiles(directory=upload_dir), name="uploaded_avatars")
 
 # Allow all origins (or adjust to your needs)
 app.add_middleware(
@@ -29,10 +36,6 @@ load_dotenv()
 
 # Create all database tables
 Base.metadata.create_all(bind=engine)
-
-# Initialize FastAPI app
-app = FastAPI()
-
 # Initialize session store in application state
 app.state.session_store = {}
 
@@ -47,11 +50,7 @@ app.include_router(queries_router)
 async def root():
     return {"message": "Welcome to AbstractAI Backend!"}
 
-# Logout route
-@app.get("/logout")
-async def logout(request: Request):
-    request.app.state.session_store.pop(request.client.host, None)
-    return {"message": "Successfully logged out"}
+
 
 if __name__ == "__main__":
     import uvicorn

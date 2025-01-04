@@ -1,12 +1,13 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { LineChart, BarChart, PieChart } from '@/components/ui/chart'
 import { Bell, ArrowRight } from 'lucide-react'
 import Layout from '@/components/Layout'
-
+import useAuth from '../../hooks/useAuth'
+import { useRouter } from 'next/navigation'
 
 // Add console logs to verify imports
 console.log({
@@ -22,6 +23,9 @@ console.log({
 })
 
 export default function Dashboard() {
+  const { user, loading } = useAuth()
+
+
   const apiUsageData = [
     { name: 'Jan', value: 5000 },
     { name: 'Feb', value: 8000 },
@@ -37,6 +41,17 @@ export default function Dashboard() {
     { name: 'BERT', value: 20 },
     { name: 'Others', value: 10 },
   ]
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login') // Redirect to login if not authenticated
+    }
+  }, [user, loading, router])
+
+  if (loading) {
+    return <p>Loading...</p>
+  }
 
   return (
     <Layout>

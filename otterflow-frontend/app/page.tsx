@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { ArrowRight, Brain, Cpu, BarChart, Database, Zap } from 'lucide-react'
 import { motion, useAnimation, AnimatePresence } from 'framer-motion'
 import AnimatedBackground from '@/components/AnimatedBackground'
+import { ToastContainer } from 'react-toastify' // Import ToastContainer
+import 'react-toastify/dist/ReactToastify.css' // Import Toastify CSS
 
 export default function LandingPage() {
   const controls = useAnimation()
@@ -64,7 +66,7 @@ export default function LandingPage() {
         </header>
         <main className="flex-1">
           <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48">
-            <div className="container px-4 md:px-6">
+            <div className="container px-4 md:px-6 mx-auto"> {/* Added mx-auto */}
               <div className="flex flex-col items-center space-y-4 text-center">
                 <motion.div 
                   initial={{ opacity: 0, y: 50 }}
@@ -114,9 +116,9 @@ export default function LandingPage() {
             </div>
           </section>
           <section id="features" className="w-full py-12 md:py-24 lg:py-32 bg-gradient-to-r from-teal-800 to-blue-800 dark:from-teal-900 dark:to-blue-900 backdrop-blur-md">
-            <div className="container px-4 md:px-6">
+            <div className="container px-4 md:px-6 mx-auto"> {/* Added mx-auto */}
               <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-center mb-8">Key Features</h2>
-              <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4 justify-items-center"> {/* Added justify-items-center */}
                 <FeatureCard
                   icon={<Brain className="h-10 w-10 text-teal-400" />}
                   title="Intelligent Model Routing"
@@ -141,9 +143,9 @@ export default function LandingPage() {
             </div>
           </section>
           <section id="testimonials" className="w-full py-12 md:py-24 lg:py-32 bg-blue-900/50 dark:bg-blue-950/50 backdrop-blur-md">
-            <div className="container px-4 md:px-6">
+            <div className="container px-4 md:px-6 mx-auto"> {/* Added mx-auto */}
               <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-center mb-8">What Our Users Say</h2>
-              <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 justify-items-center"> {/* Added justify-items-center */}
                 <TestimonialCard
                   quote="OtterFlow has revolutionized our AI development process. We've seen a 40% reduction in costs and a significant boost in performance."
                   author="Jane Doe, CTO at TechCorp"
@@ -160,7 +162,7 @@ export default function LandingPage() {
             </div>
           </section>
           <section id="cta" className="w-full py-12 md:py-24 lg:py-32 bg-teal-800/50 dark:bg-teal-900/50 backdrop-blur-md">
-            <div className="container px-4 md:px-6">
+            <div className="container px-4 md:px-6 mx-auto"> {/* Added mx-auto */}
               <div className="flex flex-col items-center space-y-4 text-center">
                 <motion.h2 
                   initial={{ opacity: 0, y: 50 }}
@@ -192,7 +194,7 @@ export default function LandingPage() {
           </section>
         </main>
         <footer className="py-6 w-full shrink-0 items-center px-4 md:px-6 border-t border-teal-800/20 bg-teal-900/50 dark:bg-teal-950/50 backdrop-blur-md">
-          <div className="flex flex-col sm:flex-row items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between mx-auto"> {/* Added justify-center and mx-auto */}
             <div className="flex items-center gap-2">
               <Image 
                 src="/images/otter-character.png" 
@@ -214,6 +216,19 @@ export default function LandingPage() {
           </div>
         </footer>
       </div>
+      {/* Include ToastContainer if not already included globally */}
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="colored"
+      />
     </div>
   )
 }
@@ -246,4 +261,3 @@ function TestimonialCard({ quote, author }) {
     </motion.div>
   )
 }
-

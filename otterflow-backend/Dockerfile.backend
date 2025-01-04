@@ -24,9 +24,9 @@ ENV STRIPE_SECRET_KEY = "sk_test_51Pvd2003R2gGtdrr5PktsuA9RrQjHSt06QScx0nV6eItGe
 ENV POSTGRES_DB=abstractai
 ENV POSTGRES_USER=abstract_user_admin
 ENV POSTGRES_PASSWORD=hello1234
-ENV POSTGRES_HOST=localhost
+ENV POSTGRES_HOST=db
 ENV POSTGRES_PORT=5432
-ENV DATABASE_URL=postgresql://abstract_user_admin:hello1234@localhost:5432/abstractai
+ENV DATABASE_URL=postgresql://abstract_user_admin:hello1234@db:5432/abstractai
 ENV EMAIL_ADDRESS="nishkalrocks02@gmail.com"
 ENV EMAIL_PASSWORD="ievg cdty pkxo yyos"
 

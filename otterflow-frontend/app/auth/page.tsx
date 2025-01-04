@@ -6,27 +6,35 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Github, Mail } from 'lucide-react'
+import { Github, Mail, Google } from 'lucide-react'
 import Link from 'next/link'
 import AnimatedBackground from '@/components/AnimatedBackground'
 
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(true)
+
   const handleGoogleLogin = async () => {
-    // Redirect to your backend to get the Google login URL
-    const response = await fetch('http://localhost:8000/auth/login/google', {
-      method: 'GET',
-    })
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+      const response = await fetch(`${backendUrl}/auth/login/google`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+      },
+      mode: 'cors',
+      })
 
-    if (!response.ok) {
-      alert('Failed to initiate Google login')
-      return
+      if (!response.ok) {
+        alert('Failed to initiate Google login')
+        return
+      }
+
+      const { url } = await response.json()
+      window.location.href = url // Redirect to Google OAuth
+    } catch (error) {
+      console.error('Error during Google login:', error)
+      alert('Something went wrong during login.')
     }
-
-    const { url } = await response.json()
-
-    // Redirect to Google OAuth URL
-    window.location.href = url
   }
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-900 to-blue-900 p-4 relative overflow-hidden">
@@ -90,7 +98,7 @@ export default function AuthPage() {
               </div>
               <div className="mt-4 grid grid-cols-2 justify-center gap-4">
 
-                <Button variant="outline" className="border-teal-600 justify-center text-teal-300 hover:bg-teal-800/50" onClick={handleGoogleLogin}>
+                <Button variant="outline" className="border-teal-600 justify-center text-teal-300 hover:bg-teal-800/50 flex items-center justify-center col-span-2" onClick={handleGoogleLogin}>
                   <Mail className="mr-2 h-4 w-4" />
                   Google
                 </Button>

@@ -15,7 +15,7 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
-
+    avatar = Column(String, nullable=True)  # New column for avatar
     # One-to-one relationship with Wallet
     wallet = relationship("Wallet", uselist=False, back_populates="user")
     api_keys = relationship("APIKey", back_populates="user")

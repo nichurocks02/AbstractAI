@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import Layout from '@/components/Layout'
+import useAuth from '../../hooks/useAuth'
+import { useRouter } from 'next/navigation'
+import { useEffect } from "react"
 
 const modelCatalog = [
   { id: 'gpt3', name: 'GPT-3', description: 'Powerful language model for various NLP tasks.' },
@@ -18,7 +21,8 @@ const modelCatalog = [
 
 export default function ModelSettings() {
   const [includedModels, setIncludedModels] = useState(new Set(['gpt3', 'gpt4']))
-
+  const { user, loading } = useAuth()
+  const router = useRouter()
   const toggleModel = (modelId: string) => {
     setIncludedModels(prev => {
       const newSet = new Set(prev)
@@ -30,7 +34,15 @@ export default function ModelSettings() {
       return newSet
     })
   }
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login') // Redirect to login if not authenticated
+    }
+  }, [user, loading, router])
 
+  if (loading) {
+    return <p>Loading...</p>
+  }
   return (
     <Layout>
       <h1 className="text-3xl font-bold mb-6">Model Settings</h1>

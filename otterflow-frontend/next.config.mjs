@@ -3,12 +3,15 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: '/:path*',
-        destination: 'http://frontend:3000/:path*', // Adjust this URL to your FastAPI server
+        source: '/api/:path*',
+        destination: 'http://backend:8000/:path*', // Proxy API requests to FastAPI backend
+      },
+      {
+        source: '/uploaded_avatars/:path*',
+        destination: 'http://backend:8000/uploaded_avatars/:path*', // Proxy uploaded avatar requests
       },
     ];
   },
 };
 
 export default nextConfig;
-
