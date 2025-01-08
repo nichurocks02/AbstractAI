@@ -20,10 +20,12 @@ export default function useAuth(): AuthState {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/user`, {
+        const response = await fetch('https://localhost/api/auth/user', {
           method: 'GET',
           credentials: 'include', // Include cookies
+          mode: 'cors',
         })
+        console.log('Cookies sent with request:', document.cookie); 
 
         if (response.ok) {
           const data: User = await response.json()

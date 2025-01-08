@@ -4,11 +4,11 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://backend:8000/:path*', // Proxy API requests to FastAPI backend
+        destination: 'https://backend:8000/:path*', // Proxy API requests to FastAPI backend
       },
       {
         source: '/uploaded_avatars/:path*',
-        destination: 'http://backend:8000/uploaded_avatars/:path*', // Proxy uploaded avatar requests
+        destination: 'https://backend:8000/uploaded_avatars/:path*', // Proxy uploaded avatar requests
       },
     ];
   },

@@ -18,6 +18,8 @@ EXPOSE 3000
 
 # Set environment variables for frontend (Optional)
 # ENV NEXT_PUBLIC_API_URL=http://backend:8000
+ENV NEXT_PUBLIC_BACKEND_URL=https://localhost:8000
+ENV REACT_APP_BACKEND_URL=https://localhost:8000
 
 # Start the Next.js app in development mode
 CMD ["npm", "run", "dev"]

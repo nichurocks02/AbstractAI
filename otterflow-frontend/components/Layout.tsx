@@ -29,9 +29,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     // Fetch user data on component mount
     const fetchUser = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/user`, {
+        const response = await fetch('https://localhost/api/auth/user', {
           credentials: 'include',
+          mode: 'cors',
         })
+        console.log('Cookies sent with request:', document.cookie); 
 
         if (response.ok) {
           const userData = await response.json()

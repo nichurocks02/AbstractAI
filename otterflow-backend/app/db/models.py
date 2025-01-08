@@ -15,11 +15,28 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+    is_email_verified = Column(Boolean, default=False)  # New field for email verification
+    auth_method = Column(String, nullable=False, default='email')  # New field to distinguish auth methods
+    password = Column(String, nullable=True)  # Made nullable to accommodate Google OAuth users
     avatar = Column(String, nullable=True)  # New column for avatar
     # One-to-one relationship with Wallet
     wallet = relationship("Wallet", uselist=False, back_populates="user")
     api_keys = relationship("APIKey", back_populates="user")
     query_logs = relationship("QueryLog", back_populates="user")
+    otps = relationship("OTP", back_populates="user")  # Relationship to OTP
+
+# OTP model for email verification and password reset
+class OTP(Base):
+    __tablename__ = "otps"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    code = Column(String, nullable=False)
+    purpose = Column(String, nullable=False)  # 'email_verification' or 'password_reset'
+    expires_at = Column(DateTime, nullable=False)
+
+    user = relationship("User", back_populates="otps")
+
 # APIKey model with proper relationship
 class APIKey(Base):
     __tablename__ = "api_keys"
