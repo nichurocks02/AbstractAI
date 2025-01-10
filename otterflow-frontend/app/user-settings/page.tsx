@@ -16,9 +16,13 @@ export default function UserSettings() {
     name: '',
     email: '',
     avatar: '',
+    auth_method: '',
   })
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [emailNotifications, setEmailNotifications] = useState(true)
+  const [inAppNotifications, setInAppNotifications] = useState(true)
+  const [dataRetention, setDataRetention] = useState(true)
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -105,7 +109,9 @@ export default function UserSettings() {
       <Tabs defaultValue="profile" className="space-y-4">
         <TabsList className="bg-teal-800/30">
           <TabsTrigger value="profile" className="data-[state=active]:bg-teal-700">Profile</TabsTrigger>
-          <TabsTrigger value="security" className="data-[state=active]:bg-teal-700">Security</TabsTrigger>
+          {user.auth_method !== 'google' && (
+            <TabsTrigger value="security" className="data-[state=active]:bg-teal-700">Security</TabsTrigger>
+          )}
           <TabsTrigger value="notifications" className="data-[state=active]:bg-teal-700">Notifications</TabsTrigger>
           <TabsTrigger value="privacy" className="data-[state=active]:bg-teal-700">Privacy</TabsTrigger>
         </TabsList>
@@ -118,24 +124,16 @@ export default function UserSettings() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center space-x-4">
-              <Avatar className="h-20 w-20">
-                {user && user.name ? (
-                  <>
-                    <AvatarImage
-                      src={
-                        user.avatar
-                          ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/${user.avatar}`
-                          : `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/default-avatar?name=${encodeURIComponent(user.name)}`
-                      }
-                    />
-
-                    <AvatarFallback>{user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}</AvatarFallback>
-                  </>
-                ) : (
-                  <AvatarFallback>UN</AvatarFallback>
-                )}
-              </Avatar>
-
+                <Avatar className="h-20 w-20">
+                  <AvatarImage
+                    src={
+                      user.avatar
+                        ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/${user.avatar}`
+                        : `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/default-avatar?name=${encodeURIComponent(user.name)}`
+                    }
+                  />
+                  <AvatarFallback>{user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}</AvatarFallback>
+                </Avatar>
                 <div>
                   <input
                     type="file"
@@ -179,26 +177,79 @@ export default function UserSettings() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="security">
+        {user.auth_method !== 'google' && (
+          <TabsContent value="security">
+            <Card>
+              <CardHeader>
+                <CardTitle>Password Management</CardTitle>
+                <CardDescription>Update your password and security settings</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">Current Password</Label>
+                  <Input id="current-password" type="password" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New Password</Label>
+                  <Input id="new-password" type="password" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm New Password</Label>
+                  <Input id="confirm-password" type="password" />
+                </div>
+                <Button>Update Password</Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        <TabsContent value="notifications">
           <Card>
             <CardHeader>
-              <CardTitle>Password Management</CardTitle>
-              <CardDescription>Update your password and security settings</CardDescription>
+              <CardTitle>Notification Preferences</CardTitle>
+              <CardDescription>Manage your notification settings</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="current-password">Current Password</Label>
-                <Input id="current-password" type="password" />
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="email-notifications"
+                  checked={emailNotifications}
+                  onCheckedChange={setEmailNotifications}
+                />
+                <Label htmlFor="email-notifications">Receive Email Notifications</Label>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-password">New Password</Label>
-                <Input id="new-password" type="password" />
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="in-app-notifications"
+                  checked={inAppNotifications}
+                  onCheckedChange={setInAppNotifications}
+                />
+                <Label htmlFor="in-app-notifications">Receive In-App Notifications</Label>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirm New Password</Label>
-                <Input id="confirm-password" type="password" />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="privacy">
+          <Card>
+            <CardHeader>
+              <CardTitle>Data Privacy Settings</CardTitle>
+              <CardDescription>Manage your data handling preferences</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="data-retention"
+                  checked={dataRetention}
+                  onCheckedChange={setDataRetention}
+                />
+                <Label htmlFor="data-retention">Allow data retention for improving services</Label>
               </div>
-              <Button>Update Password</Button>
+              <p className="text-sm text-teal-300">
+                We comply with GDPR, CCPA, and other applicable data protection regulations.
+              </p>
+              <Button variant="outline">Request Data Export</Button>
+              <Button variant="destructive">Delete Account</Button>
             </CardContent>
           </Card>
         </TabsContent>

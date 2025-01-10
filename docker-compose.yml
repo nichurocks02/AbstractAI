@@ -55,6 +55,19 @@ services:
     networks:
       - app-network
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - app-network
 networks:
   app-network:
     driver: bridge
+volumes:
+  pgadmin-data:
