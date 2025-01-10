@@ -345,6 +345,7 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)):
                 "email": user.email, 
                 "name": user.name,
                 "avatar": user.avatar or f"/auth/default-avatar?name={user.name}",
+                "auth_method": user.auth_method,
                 }
 
     except BadSignature:
