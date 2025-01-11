@@ -56,7 +56,7 @@ def generate_otp(length: int = 6) -> str:
 DEFAULT_WALLET_BALANCE = 500  # $5.00 in cents
 
 def generate_unique_api_key():
-    return secrets.token_hex(32)
+    return f"of-{secrets.token_hex(32)}"
 
 def cost_per_query(input_cost_per_million, output_cost_per_million, num_input_tokens, num_output_tokens):
     cost_for_input = (input_cost_per_million / 1_000_000) * num_input_tokens

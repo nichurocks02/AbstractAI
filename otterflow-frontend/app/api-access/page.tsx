@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,24 +8,100 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Copy, Key, Trash } from 'lucide-react'
 import Layout from '@/components/Layout'
+import { toast } from 'react-toastify'
+
+interface ApiKey {
+  key: string
+  api_name: string
+  is_active: boolean
+  created_at: string
+}
 
 export default function APIAccess() {
-  const [apiKeys, setApiKeys] = useState([
-    { id: 1, key: 'sk-1234567890abcdef', createdAt: '2023-06-01' },
-    { id: 2, key: 'sk-0987654321fedcba', createdAt: '2023-06-15' },
-  ])
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
+  const [loadingKeys, setLoadingKeys] = useState(false)
+  const [newApiName, setNewApiName] = useState('')
 
-  const generateNewKey = () => {
-    const newKey = {
-      id: apiKeys.length + 1,
-      key: `sk-${Math.random().toString(36).substr(2, 16)}`,
-      createdAt: new Date().toISOString().split('T')[0],
+  // Fetch API keys from backend on component mount
+  useEffect(() => {
+    loadApiKeys()
+  }, [])
+
+  const loadApiKeys = async () => {
+    try {
+      setLoadingKeys(true)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api-key/list`, {
+        credentials: 'include',
+      })
+  
+      if (response.status === 404) {
+        // No API keys found; treat as empty
+        setApiKeys([])
+      } else if (response.ok) {
+        const data = await response.json()
+        setApiKeys(data.api_keys)
+      } else {
+        const errData = await response.json()
+        toast.error(errData.detail || 'Failed to load API keys.')
+      }
+    } catch (error) {
+      console.error('Error loading API keys:', error)
+      toast.error('An error occurred while loading API keys.')
+    } finally {
+      setLoadingKeys(false)
     }
-    setApiKeys([...apiKeys, newKey])
+  }
+  
+
+  const handleGenerateNewKey = async () => {
+    if (!newApiName.trim()) {
+      toast.error('Please enter a name for the API key.')
+      return
+    }
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api-key/generate_api_key`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_name: newApiName }),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        // data.api_key is the newly generated key
+        toast.success(`API Key "${newApiName}" created successfully!`)
+        // Reload keys to reflect changes
+        loadApiKeys()
+        setNewApiName('')
+      } else {
+        const errData = await response.json()
+        toast.error(errData.detail || 'Failed to generate new API key.')
+      }
+    } catch (error) {
+      console.error('Error generating API key:', error)
+      toast.error('An error occurred while generating API key.')
+    }
   }
 
-  const revokeKey = (id: number) => {
-    setApiKeys(apiKeys.filter((key) => key.id !== id))
+  // Delete the key permanently
+  const handleDeleteKey = async (apiName: string) => {
+    try {
+      // This calls DELETE /api-key/{api_name}/delete for permanent deletion
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api-key/${apiName}/delete`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      if (response.ok) {
+        toast.success(`API Key "${apiName}" deleted.`)
+        setApiKeys((prev) => prev.filter((k) => k.api_name !== apiName))
+      } else {
+        const errData = await response.json()
+        toast.error(errData.detail || 'Failed to delete API key.')
+      }
+    } catch (error) {
+      console.error('Error deleting API key:', error)
+      toast.error('An error occurred while deleting API key.')
+    }
   }
 
   return (
@@ -37,42 +113,58 @@ export default function APIAccess() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {apiKeys.map((key) => (
-              <div
-                key={key.id}
-                className="flex items-center justify-between p-2 border rounded"
-              >
-                <div>
-                  <div className="font-mono">{key.key}</div>
-                  <div className="text-sm text-gray-500">
-                    Created on {key.createdAt}
+            {loadingKeys ? (
+              <p>Loading API keys...</p>
+            ) : apiKeys.length === 0 ? (
+              <p>No API keys found.</p>
+            ) : (
+              apiKeys.map((apiKeyObj) => (
+                <div
+                  key={apiKeyObj.api_name}
+                  className="flex items-center justify-between p-2 border rounded"
+                >
+                  <div>
+                    <div className="font-mono">{apiKeyObj.key}</div>
+                    <div className="text-sm text-gray-500">
+                      Name: <strong>{apiKeyObj.api_name}</strong> | Created on{' '}
+                      {new Date(apiKeyObj.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => navigator.clipboard.writeText(apiKeyObj.key)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => handleDeleteKey(apiKeyObj.api_name)}
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-                <div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => navigator.clipboard.writeText(key.key)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => revokeKey(key.id)}
-                  >
-                    <Trash className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
-          <Button onClick={generateNewKey} className="mt-4">
-            <Key className="mr-2 h-4 w-4" />
-            Generate New API Key
-          </Button>
+
+          <div className="mt-4 flex items-center space-x-2">
+            <Input
+              placeholder="Enter API name"
+              value={newApiName}
+              onChange={(e) => setNewApiName(e.target.value)}
+            />
+            <Button onClick={handleGenerateNewKey}>
+              <Key className="mr-2 h-4 w-4" />
+              Generate New API Key
+            </Button>
+          </div>
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Integration Guide</CardTitle>
@@ -146,31 +238,6 @@ fetch(url, {
               </pre>
             </TabsContent>
           </Tabs>
-        </CardContent>
-      </Card>
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Security Settings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="ip-whitelist">IP Whitelist</Label>
-              <Input
-                id="ip-whitelist"
-                placeholder="Enter IP addresses (comma-separated)"
-              />
-            </div>
-            <div>
-              <Label htmlFor="usage-limit">Usage Limit (per day)</Label>
-              <Input
-                id="usage-limit"
-                type="number"
-                placeholder="Enter limit"
-              />
-            </div>
-            <Button>Save Security Settings</Button>
-          </div>
         </CardContent>
       </Card>
     </Layout>
