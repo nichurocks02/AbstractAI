@@ -1,106 +1,158 @@
 # app/machine_learning/pipeline.py
 
-import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics.pairwise import euclidean_distances
-from app.utility.utility import map_user_input_to_normalized  # Move this function to utility.py
+import openai
+import json
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
-def load_and_preprocess_data(file_path: str):
-    print(file_path)
-    df = pd.read_csv(file_path)
-    df.columns = df.iloc[0]
-    df = df[1:]
-    
-    # Extract Input and Output cost before dropping columns
-    df['InputCost'] = df['Input Price\nUSD/1M Tokens'].replace('[\$,]', '', regex=True).astype(float)
-    df['OutputCost'] = df['Output Price\nUSD/1M Tokens'].replace('[\$,]', '', regex=True).astype(float)
+# Import your DB model
+from app.db.models import ModelMetadata
 
-    mdf = df.drop(columns=['Creator', 'License','Context\nWindow','Further\nAnalysis','Median\nTokens/s',
-                           'P5\nTokens/s', 'P25\nTokens/s', 'P75\nTokens/s', 'P95\nTokens/s',
-                           'P5\nFirst Chunk (s)', 'P25\nFirst Chunk (s)', 'P75\nFirst Chunk (s)',
-                           'P95\nFirst Chunk (s)','InputCost','OutputCost'])
-    print(mdf)
-    mdf = mdf.drop([23,24,39,40,43,44,46,52,57,58])
-    
-    # Convert relevant columns to numeric and fill NaNs
-    mdf[['Chatbot Arena', 'MMLU', 'MT Bench', 'HumanEval']] = mdf[['Chatbot Arena', 'MMLU', 'MT Bench', 'HumanEval']].apply(pd.to_numeric, errors='coerce')
-    mdf[['Chatbot Arena', 'MMLU', 'MT Bench', 'HumanEval']] = mdf[['Chatbot Arena', 'MMLU', 'MT Bench', 'HumanEval']].fillna(mdf[['Chatbot Arena', 'MMLU', 'MT Bench', 'HumanEval']].mean().round(2))
-    mdf['Chatbot Arena'] = mdf['Chatbot Arena'].fillna(mdf['Chatbot Arena'].mean()).astype(int)
-
-    # Normalize performance columns
-    performance_columns = ['Index\nNormalized avg', 'Chatbot Arena', 'MMLU', 'MT Bench', 'HumanEval']
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    mdf[performance_columns] = scaler.fit_transform(mdf[performance_columns]).round(3)
-
-    # Normalize cost and latency columns
-    mdf['Blended\nUSD/1M Tokens'] = mdf['Blended\nUSD/1M Tokens'].replace('[\$,]', '', regex=True).astype(float)
-    mdf['Blended\nUSD/1M Tokens'] = scaler.fit_transform(mdf[['Blended\nUSD/1M Tokens']]).round(3)
-    mdf['Median\nFirst Chunk (s)'] = scaler.fit_transform(mdf[['Median\nFirst Chunk (s)']]).round(3)
-    
-    # Rename columns for better readability
-    mdf = mdf.rename(columns={"Blended\nUSD/1M Tokens": "Cost", "Median\nFirst Chunk (s)": "latency"})
-    
-    # Compute performance average
-    mdf['Performance'] = mdf[['Index\nNormalized avg', 'Chatbot Arena', 'MMLU', 'MT Bench', 'HumanEval']].mean(axis=1)
-
-    # Store preprocessed dataframe and input-output cost information
-    processed_data = {
-        'preprocessed_df': mdf,
-        'input_output_costs': df[['Model', 'InputCost', 'OutputCost']]
-    }
-
-    return processed_data
-
-# Function to perform prediction
-def predict_model(user_input, preprocessed_data):
-    # Access preprocessed dataframe and input-output costs
-    mdf = preprocessed_data['preprocessed_df']
-    input_output_costs = preprocessed_data['input_output_costs']
-    
-    input_output_costs = input_output_costs.drop([23,24,39,40,43,44,46,52,57,58])
-    
-    # Features to compare
-    features = mdf[['Cost', 'Performance', 'latency']]
-    user_input_normalized = {
-        'Cost': map_user_input_to_normalized(user_input['Cost'], mdf, 'Cost'),
-        'Performance': map_user_input_to_normalized(user_input['Performance'], mdf, 'Performance'),
-        'latency': map_user_input_to_normalized(user_input['latency'], mdf, 'latency')
-    }
-    # Convert user input to DataFrame
-    user_input_df = pd.DataFrame([user_input_normalized], columns=['Cost', 'Performance', 'latency'])
-
-    # Compute similarity using Euclidean distance
-    distances = euclidean_distances(user_input_df, features)
-    mdf['Similarity'] = distances[0]
-    mdf = mdf.drop(columns=["Index\nNormalized avg", "Chatbot Arena", "MMLU", "MT Bench", "HumanEval","Input Price\nUSD/1M Tokens","Output Price\nUSD/1M Tokens"])
-    print(mdf)
-    # Get top 3 models based on similarity
-    top_3_models = mdf.nsmallest(3, 'Similarity')
-    # top_3_models = top_3_models.drop(columns=["Index\nNormalized avg", "Chatbot Arena", "MMLU", "MT Bench", "HumanEval"])
-    # print(mdf['Model','Cost','Performance','latency'])
-    final_df = pd.DataFrame({
-        'Model': top_3_models['Model'],
-        'Similarity': top_3_models['Similarity'],
-        'InputCost': top_3_models['Model'].apply(lambda model: input_output_costs[input_output_costs['Model'] == model]['InputCost'].values[0]),
-        'OutputCost': top_3_models['Model'].apply(lambda model: input_output_costs[input_output_costs['Model'] == model]['OutputCost'].values[0])
-    })    
-    return final_df
-
-def map_user_input_to_normalized(user_input, df, column_name):
+#####################################################
+# 1. Zero-shot classification                       #
+#####################################################
+def classify_query_zero_shot(user_query: str):
     """
-    Map a user input value between 0 and 1 to the corresponding normalized value range.
-    
-    :param user_input: User input value between 0 and 1.
-    :param df: DataFrame containing normalized values for the column.
-    :param column_name: Column name to map the value to.
-    :return: Mapped normalized value.
+    Classify user_query into four categories:
+    'math', 'coding', 'general knowledge', 'other'.
+    Return a dict with probabilities for each category, e.g.:
+    {
+      "math": 0.5,
+      "coding": 0.2,
+      "general knowledge": 0.1,
+      "other": 0.2
+    }
+    If the call fails, fallback to {"math": 0.0, "coding": 0.0, "general knowledge": 0.0, "other": 1.0}.
     """
-    min_val = df[column_name].min()
-    max_val = df[column_name].max()
-    return min_val + user_input * (max_val - min_val)
+    categories = ["math", "coding", "general knowledge", "other"]
+    prompt = f"""
+    You are a specialized classifier. Classify the following user query 
+    into these categories: {categories}. Return a JSON object mapping 
+    each category to a probability (0.0 to 1.0).
 
-def send_query_to_model(user_query: str, predicted_model: pd.DataFrame) -> str:
-    """Send the user query to the predicted model and get the response."""
-    # Implement the logic to interact with your ML model
-    # For demonstration, return a placeholder response
-    return "Model response based on the query."
+    Query: {user_query}
+    """
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+        )
+        content = response["choices"][0]["message"]["content"]
+        classification = json.loads(content)
+    except Exception:
+        classification = {"math": 0.0, "coding": 0.0, "general knowledge": 0.0, "other": 1.0}
+
+    for cat in categories:
+        if cat not in classification:
+            classification[cat] = 0.0
+    return classification
+
+
+#####################################################
+# 2. Predict Model from DB                          #
+#####################################################
+def predict_model_from_db(
+    db: Session,
+    user_input: dict,
+    user_query: str = None,
+    alpha: float = 0.5,
+    top_k: int = 3
+):
+    """
+    DB-based approach to get top-k models.
+    
+    1. (Optionally) Zero-shot classify user_query -> category_probs
+    2. Query ModelMetadata from DB
+    3. Weighted sum approach:
+         final_score = cost_pref*(1 - cost) + 
+                       perf_pref*(perf_cat) + 
+                       lat_pref*(1 - latency)
+       where perf_cat = alpha*performance + (1-alpha)*category_score
+    4. Sort descending, return top_k
+    5. We'll store raw input/output cost in the output for billing
+
+    user_input example: {"Cost":8, "Performance":9, "latency":2} on 0..10 scale
+    """
+
+    # 2.1 Classification if user_query is provided
+    category_probs = {"math":0,"coding":0,"general knowledge":0,"other":1}
+    if user_query:
+        classification = classify_query_zero_shot(user_query)
+        category_probs = classification
+
+    # If no real match => alpha=1 => rely entirely on overall performance
+    sum_specific = category_probs["math"] + category_probs["coding"] + category_probs["general knowledge"]
+    if sum_specific < 0.01:
+        alpha = 1.0
+
+    # 2.2 Query all models from DB
+    all_models = db.query(ModelMetadata).all()
+
+    # 2.3 Convert user_input from [0..10] -> [0..1]
+    cost_pref = user_input["Cost"] / 10.0
+    perf_pref = user_input["Performance"] / 10.0
+    lat_pref = user_input["latency"] / 10.0
+
+    results = []
+    for m in all_models:
+        # cost, latency, performance are in [0..1], 
+        # but we want "lower cost => better" => cost_norm = 1 - cost
+        # same for latency => lat_norm = 1 - latency
+        cost_norm = 1 - (m.cost or 0.0)
+        lat_norm  = 1 - (m.latency or 0.0)
+        base_perf = (m.performance or 0.0)
+
+        # Weighted category score
+        cat_score = (
+            category_probs["math"]*(m.math_score or 0.5) +
+            category_probs["coding"]*(m.coding_score or 0.5) +
+            category_probs["general knowledge"]*(m.gk_score or 0.5)
+        )
+        perf_cat = alpha*base_perf + (1-alpha)*cat_score
+
+        final_score = (cost_pref*cost_norm) + (perf_pref*perf_cat) + (lat_pref*lat_norm)
+
+        results.append({
+            "model_name": m.model_name,
+            "final_score": final_score,
+            # raw cost for token billing
+            "input_cost_raw": m.input_cost_raw,
+            "output_cost_raw": m.output_cost_raw
+        })
+
+    # 2.4 Sort descending by final_score, pick top_k
+    results.sort(key=lambda x: x["final_score"], reverse=True)
+    return results[:top_k]
+
+
+#####################################################
+# 3. Sending Query & Fallback Logic                 #
+#####################################################
+def send_query_to_model(user_query: str, chosen_model: dict) -> str:
+    """
+    chosen_model is a dict with keys like 'model_name', 'final_score', etc.
+    Return a placeholder or call your real LLM endpoint.
+    """
+    return f"[Mock response from {chosen_model['model_name']}]"
+
+def route_with_fallback(user_query: str, candidates: list, max_attempts=3):
+    """
+    If you have multiple candidate models in descending final_score,
+    try each. If one fails, move on.
+    """
+    attempts = 0
+    for c in candidates:
+        attempts += 1
+        try:
+            resp = send_query_to_model(user_query, c)
+            return {
+                "model_name": c["model_name"],
+                "response": resp,
+                "attempts": attempts
+            }
+        except Exception:
+            # Log error, go to next
+            continue
+    
+    raise HTTPException(status_code=500, detail="All candidate models failed during fallback.")

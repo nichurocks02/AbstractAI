@@ -7,6 +7,41 @@ from datetime import datetime
 from app.db.database import engine 
 Base = declarative_base()
 
+
+
+
+class ModelMetadata(Base):
+    __tablename__ = "model_metadata"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    model_name = Column(String, unique=True, nullable=False)
+    license = Column(String, nullable=False)
+    window = Column(String, nullable=False)
+
+    # Normalized columns in [0..1]
+    cost = Column(Float, nullable=True)
+    latency = Column(Float, nullable=True)
+    performance = Column(Float, nullable=True)
+
+    # Category scores in [0..1]
+    math_score = Column(Float, nullable=True)
+    coding_score = Column(Float, nullable=True)
+    gk_score = Column(Float, nullable=True)  # "general knowledge"
+
+    # Original price columns for cost calculation
+    input_cost_raw = Column(Float, nullable=True)   # e.g. $2.50 per million
+    output_cost_raw = Column(Float, nullable=True)
+
+# app/db/models.py (expanded)
+class ModelUsage(Base):
+    __tablename__ = "model_usage"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    model_name = Column(String, nullable=False)
+    input_tokens = Column(Integer, nullable=False)
+    output_tokens = Column(Integer, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+
 # User model for storing user information
 class User(Base):
     __tablename__ = "users"
