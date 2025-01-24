@@ -13,6 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the entire backend directory to the container
 COPY otterflow-backend/ /app/
 
+# Copy the .env file to the working directory
+COPY .env /app/
+
 # Expose the port FastAPI will run on
 EXPOSE 8000
 

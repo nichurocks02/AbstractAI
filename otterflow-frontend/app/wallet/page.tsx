@@ -99,7 +99,7 @@ export default function Wallet() {
                 <CardContent className="space-y-6">
                   <div className="text-center">
                     <h3 className="text-lg font-semibold">Your Current Balance</h3>
-                    <p className="text-4xl font-bold mt-2">${balance.toFixed(2)}</p>
+                    <p className="text-4xl font-bold mt-2">${balance.toFixed(8)}</p>
                   </div>
     
                 </CardContent>

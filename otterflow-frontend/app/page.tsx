@@ -45,9 +45,6 @@ export default function LandingPage() {
             <Link className="text-sm font-medium hover:text-teal-400 transition-colors" href="#features">
               Features
             </Link>
-            <Link className="text-sm font-medium hover:text-teal-400 transition-colors" href="#testimonials">
-              Testimonials
-            </Link>
             <Link className="text-sm font-medium hover:text-teal-400 transition-colors" href="#pricing">
               Pricing
             </Link>
@@ -118,17 +115,14 @@ export default function LandingPage() {
           <section id="features" className="w-full py-12 md:py-24 lg:py-32 bg-gradient-to-r from-teal-800 to-blue-800 dark:from-teal-900 dark:to-blue-900 backdrop-blur-md">
             <div className="container px-4 md:px-6 mx-auto"> {/* Added mx-auto */}
               <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-center mb-8">Key Features</h2>
-              <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4 justify-items-center"> {/* Added justify-items-center */}
-                <FeatureCard
+              <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3 justify-items-center"> {/* Added justify-items-center */}
+                
+              <FeatureCard
                   icon={<Brain className="h-10 w-10 text-teal-400" />}
                   title="Intelligent Model Routing"
                   description="Automatically selects the best LLM for each prompt, optimizing for cost, speed, and quality."
                 />
-                <FeatureCard
-                  icon={<Cpu className="h-10 w-10 text-blue-400" />}
-                  title="Algorithmic Enhancements"
-                  description="Incorporates advanced techniques like Chain of Thought and Mixture of Agents to improve performance."
-                />
+                
                 <FeatureCard
                   icon={<Database className="h-10 w-10 text-teal-400" />}
                   title="Local Model Utilization"
