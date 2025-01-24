@@ -3,6 +3,7 @@ aiohttp
 aiosignal
 annotated-types
 anyio
+apscheduler
 async-timeout
 attrs
 backoff
@@ -10,6 +11,7 @@ beautifulsoup4
 certifi
 charset-normalizer
 click
+cohere
 dataclasses-json
 deprecated
 dirtyjson
@@ -22,7 +24,10 @@ filelock
 filetype
 frozenlist
 fsspec
+google-generativeai
+google-genai
 greenlet
+groq
 h11
 httpcore
 httpx

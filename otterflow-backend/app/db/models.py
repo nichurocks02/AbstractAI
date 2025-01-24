@@ -1,11 +1,49 @@
 # app/db/models.py
-
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime,Text, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
+from datetime import datetime, timezone
 from app.db.database import engine 
 Base = declarative_base()
+
+
+
+
+class ModelMetadata(Base):
+    __tablename__ = "model_metadata"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    model_name = Column(String, unique=True, nullable=False)
+    license = Column(String, nullable=False)
+    window = Column(String, nullable=False)
+
+    # Normalized columns in [0..1]
+    cost = Column(Float, nullable=True)
+    latency = Column(Float, nullable=True)
+    performance = Column(Float, nullable=True)
+
+    # Category scores in [0..1]
+    math_score = Column(Float, nullable=True)
+    coding_score = Column(Float, nullable=True)
+    gk_score = Column(Float, nullable=True)  # "general knowledge"
+
+    # Original price columns for cost calculation
+    input_cost_raw = Column(Float, nullable=True)   # e.g. $2.50 per million
+    output_cost_raw = Column(Float, nullable=True)
+    top_p = Column(Float,nullable=False)
+    temperature = Column(Float, nullable=False)
+    io_ratio = Column(Float,nullable=False)
+'''
+# app/db/models.py (expanded)
+class ModelUsage(Base):
+    __tablename__ = "model_usage"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    model_name = Column(String, nullable=False)
+    input_tokens = Column(Integer, nullable=False)
+    output_tokens = Column(Integer, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+'''
 
 # User model for storing user information
 class User(Base):
@@ -56,8 +94,9 @@ class Wallet(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)  # PostgreSQL
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, unique=True)
-    balance = Column(Integer, default=500)  # Default balance in cents ($5)
-
+    balance = Column(Float, default=500)  # Default balance in cents ($5)
+    email = Column(String, unique=True, nullable=False)
+    name = Column(String, nullable=False)
     # Relationship back to the user
     user = relationship("User", back_populates="wallet")
 
@@ -67,14 +106,20 @@ class QueryLog(Base):
     __tablename__ = "query_logs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, default=datetime.now(timezone.utc))
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    chat_window_id = Column(Integer, nullable=False)  # Chat window ID to group by topic
-    query_input = Column(Text, nullable=False)        # Store the input query text
-    query_output = Column(Text, nullable=True)        # Store the model output
-    tokens_used = Column(Integer, nullable=False)     # Number of tokens processed
-    cost = Column(Float, nullable=False)              # Cost of the query
-    latency = Column(Float, nullable=True)            # Query processing latency
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    chat_topic = Column(String, nullable=True)              # Optional chat topic
+    query_input = Column(Text, nullable=False)              # Store the input query text
+    query_output = Column(Text, nullable=False)             # Store the model output
+    model_name = Column(String, nullable=False)             # Store the model name    
+    provider_name = Column(String, nullable=False)          # Store the provider name 
+    completion_tokens = Column(Integer,nullable=False)      # Completed token count i.e. Input + Output Token count
+    total_tokens = Column(Integer,nullable=False)           # Total Token count = Input + Output + Prompt Token count
+    latency = Column(Float,nullable=True)                  # Time taken for the model to return the response
+    cost = Column(Float, nullable=False)                    # Actual cost of the total tokens
+    cost_preference = Column(Integer,nullable=False)        # User's input cost preference
+    latency_preference = Column(Integer,nullable=False)     # User's latency preference
+    performance_preference = Column(Integer,nullable=False) # User's performance preference
 
     user = relationship("User", back_populates="query_logs")
 

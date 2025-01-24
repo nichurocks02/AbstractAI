@@ -24,7 +24,7 @@ serializer = URLSafeSerializer(SESSION_SECRET_KEY, salt="session")
 
 # Session cookie settings
 SESSION_COOKIE_NAME = "session_id"
-SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 7  # 7 days
+SESSION_COOKIE_MAX_AGE = 60 * 60 * 8 * 1  # 8 hours
 
 
 # Signup endpoint
@@ -291,7 +291,7 @@ async def auth_google(code: str, request: Request, response: Response, db: Sessi
             db.refresh(user)
 
             # Initialize wallet with $5 free credit
-            wallet = Wallet(user_id=user.id, balance=DEFAULT_WALLET_BALANCE)
+            wallet = Wallet(user_id=user.id, balance=DEFAULT_WALLET_BALANCE, email = user.email, name=user.name)
             db.add(wallet)
             db.commit()
             db.refresh(wallet)

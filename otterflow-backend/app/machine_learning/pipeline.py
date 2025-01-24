@@ -1,106 +1,309 @@
 # app/machine_learning/pipeline.py
 
-import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics.pairwise import euclidean_distances
-from app.utility.utility import map_user_input_to_normalized  # Move this function to utility.py
+import openai
+from openai import OpenAI
+import os
+import json
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
-def load_and_preprocess_data(file_path: str):
-    print(file_path)
-    df = pd.read_csv(file_path)
-    df.columns = df.iloc[0]
-    df = df[1:]
-    
-    # Extract Input and Output cost before dropping columns
-    df['InputCost'] = df['Input Price\nUSD/1M Tokens'].replace('[\$,]', '', regex=True).astype(float)
-    df['OutputCost'] = df['Output Price\nUSD/1M Tokens'].replace('[\$,]', '', regex=True).astype(float)
-
-    mdf = df.drop(columns=['Creator', 'License','Context\nWindow','Further\nAnalysis','Median\nTokens/s',
-                           'P5\nTokens/s', 'P25\nTokens/s', 'P75\nTokens/s', 'P95\nTokens/s',
-                           'P5\nFirst Chunk (s)', 'P25\nFirst Chunk (s)', 'P75\nFirst Chunk (s)',
-                           'P95\nFirst Chunk (s)','InputCost','OutputCost'])
-    print(mdf)
-    mdf = mdf.drop([23,24,39,40,43,44,46,52,57,58])
-    
-    # Convert relevant columns to numeric and fill NaNs
-    mdf[['Chatbot Arena', 'MMLU', 'MT Bench', 'HumanEval']] = mdf[['Chatbot Arena', 'MMLU', 'MT Bench', 'HumanEval']].apply(pd.to_numeric, errors='coerce')
-    mdf[['Chatbot Arena', 'MMLU', 'MT Bench', 'HumanEval']] = mdf[['Chatbot Arena', 'MMLU', 'MT Bench', 'HumanEval']].fillna(mdf[['Chatbot Arena', 'MMLU', 'MT Bench', 'HumanEval']].mean().round(2))
-    mdf['Chatbot Arena'] = mdf['Chatbot Arena'].fillna(mdf['Chatbot Arena'].mean()).astype(int)
-
-    # Normalize performance columns
-    performance_columns = ['Index\nNormalized avg', 'Chatbot Arena', 'MMLU', 'MT Bench', 'HumanEval']
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    mdf[performance_columns] = scaler.fit_transform(mdf[performance_columns]).round(3)
-
-    # Normalize cost and latency columns
-    mdf['Blended\nUSD/1M Tokens'] = mdf['Blended\nUSD/1M Tokens'].replace('[\$,]', '', regex=True).astype(float)
-    mdf['Blended\nUSD/1M Tokens'] = scaler.fit_transform(mdf[['Blended\nUSD/1M Tokens']]).round(3)
-    mdf['Median\nFirst Chunk (s)'] = scaler.fit_transform(mdf[['Median\nFirst Chunk (s)']]).round(3)
-    
-    # Rename columns for better readability
-    mdf = mdf.rename(columns={"Blended\nUSD/1M Tokens": "Cost", "Median\nFirst Chunk (s)": "latency"})
-    
-    # Compute performance average
-    mdf['Performance'] = mdf[['Index\nNormalized avg', 'Chatbot Arena', 'MMLU', 'MT Bench', 'HumanEval']].mean(axis=1)
-
-    # Store preprocessed dataframe and input-output cost information
-    processed_data = {
-        'preprocessed_df': mdf,
-        'input_output_costs': df[['Model', 'InputCost', 'OutputCost']]
-    }
-
-    return processed_data
-
-# Function to perform prediction
-def predict_model(user_input, preprocessed_data):
-    # Access preprocessed dataframe and input-output costs
-    mdf = preprocessed_data['preprocessed_df']
-    input_output_costs = preprocessed_data['input_output_costs']
-    
-    input_output_costs = input_output_costs.drop([23,24,39,40,43,44,46,52,57,58])
-    
-    # Features to compare
-    features = mdf[['Cost', 'Performance', 'latency']]
-    user_input_normalized = {
-        'Cost': map_user_input_to_normalized(user_input['Cost'], mdf, 'Cost'),
-        'Performance': map_user_input_to_normalized(user_input['Performance'], mdf, 'Performance'),
-        'latency': map_user_input_to_normalized(user_input['latency'], mdf, 'latency')
-    }
-    # Convert user input to DataFrame
-    user_input_df = pd.DataFrame([user_input_normalized], columns=['Cost', 'Performance', 'latency'])
-
-    # Compute similarity using Euclidean distance
-    distances = euclidean_distances(user_input_df, features)
-    mdf['Similarity'] = distances[0]
-    mdf = mdf.drop(columns=["Index\nNormalized avg", "Chatbot Arena", "MMLU", "MT Bench", "HumanEval","Input Price\nUSD/1M Tokens","Output Price\nUSD/1M Tokens"])
-    print(mdf)
-    # Get top 3 models based on similarity
-    top_3_models = mdf.nsmallest(3, 'Similarity')
-    # top_3_models = top_3_models.drop(columns=["Index\nNormalized avg", "Chatbot Arena", "MMLU", "MT Bench", "HumanEval"])
-    # print(mdf['Model','Cost','Performance','latency'])
-    final_df = pd.DataFrame({
-        'Model': top_3_models['Model'],
-        'Similarity': top_3_models['Similarity'],
-        'InputCost': top_3_models['Model'].apply(lambda model: input_output_costs[input_output_costs['Model'] == model]['InputCost'].values[0]),
-        'OutputCost': top_3_models['Model'].apply(lambda model: input_output_costs[input_output_costs['Model'] == model]['OutputCost'].values[0])
-    })    
-    return final_df
-
-def map_user_input_to_normalized(user_input, df, column_name):
+# Import your DB model
+from app.db.models import ModelMetadata
+#Import llm function calls
+from app.llm.openai_query import handle_openai_query_async
+from app.llm.groq_query import handle_groq_query_async
+from app.llm.google_query import handle_google_query_async
+from app.llm.aimlapi_query import handle_aiml_query_async
+from app.llm.cohere_query import handle_cohere_query_async
+#####################################################
+# 1. Zero-shot classification                       #
+#####################################################
+'''
+def classify_query_zero_shot(user_query: str):
     """
-    Map a user input value between 0 and 1 to the corresponding normalized value range.
-    
-    :param user_input: User input value between 0 and 1.
-    :param df: DataFrame containing normalized values for the column.
-    :param column_name: Column name to map the value to.
-    :return: Mapped normalized value.
-    """
-    min_val = df[column_name].min()
-    max_val = df[column_name].max()
-    return min_val + user_input * (max_val - min_val)
+    Perform a multi-label classification of user_query into 4 categories:
+      [ 'math', 'coding', 'general knowledge', 'other' ]
 
-def send_query_to_model(user_query: str, predicted_model: pd.DataFrame) -> str:
-    """Send the user query to the predicted model and get the response."""
-    # Implement the logic to interact with your ML model
-    # For demonstration, return a placeholder response
-    return "Model response based on the query."
+    Return a dict with probabilities for each category, e.g.:
+      {"math": 0.3, "coding": 0.5, "general knowledge": 0.2, "other": 0.0}
+
+    - If the call fails, or we can't parse JSON, fallback to
+      {"math": 0.0, "coding": 0.0, "general knowledge": 0.0, "other": 1.0}.
+    - Categories may partially overlap; the sum of probabilities can be
+      <= 1, > 1, or = 1.
+    """
+    categories = ["math", "coding", "general knowledge", "other"]
+
+    prompt = f"""
+    You are a multi-label classifier. For the user query below, 
+    assign a probability (0.0 to 1.0) to each of these categories:
+    {categories}.
+
+    The sum of probabilities can be any number, because multiple
+    categories can overlap. Return valid JSON with these four keys.
+
+    Query: \"\"\"{user_query}\"\"\"
+    """
+
+    # Fallback distribution if there's any exception
+    fallback = {"math": 0.0, "coding": 0.0, "general knowledge": 0.0, "other": 0.5}
+
+    try:
+        # Create an OpenAI client. You might instead set openai.api_key directly.
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+        # Use the chat completion endpoint
+        response = openai.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+        )
+
+        # Parse the JSON returned in the message
+        content = response.choices[0].message.content.strip()
+        classification = json.loads(content)
+
+        # Ensure all 4 categories exist
+        for cat in categories:
+            if cat not in classification:
+                classification[cat] = 0.0
+
+        print(f"classification: {classification}")
+        return classification
+
+    except Exception as e:
+        print(f"[classify_query_zero_shot] Exception: {e}")
+        return fallback
+'''
+
+
+
+#####################################################
+# 2. Predict Model from DB                          #
+#####################################################
+def predict_model_from_db(
+    db: Session,
+    user_input: dict,
+    user_query: str = None,
+    alpha: float = 0.33,  # cost priority
+    beta: float = 0.33,   # performance priority
+    gamma: float = 0.34,  # latency priority
+    top_k: int = 3
+):
+    """
+    1) Zero-shot classification to find domain relevance (math, coding, gk).
+    2) Filter models by user constraints (cost, performance, latency).
+    3) Score each model with a multi-criteria function:
+       domain_blend * base_perf + (1 - domain_blend) * domain_score => final_perf
+       cost_score = 1 - normed_cost
+       lat_score  = 1 - normed_latency
+       perf_score = normed_final_perf
+       final_score = alpha*cost_score + beta*perf_score + gamma*lat_score
+    4) Sort descending, pick top_k.
+    """
+
+    from app.db.models import ModelMetadata
+    from fastapi import HTTPException
+
+    # Retrieve all models from DB
+    all_models = db.query(ModelMetadata).all()
+    if not all_models:
+        raise HTTPException(status_code=404, detail="No models found in DB.")
+
+    # Extract constraints from user_input
+    cost_max = user_input.get("cost_max", None)
+    perf_min = user_input.get("perf_min", None)
+    lat_max = user_input.get("lat_max", None)
+
+    # Filter models based on constraints
+    filtered = []
+    for m in all_models:
+        if cost_max is not None and m.cost > cost_max:
+            continue
+        if perf_min is not None and m.performance < perf_min:
+            continue
+        if lat_max is not None and m.latency > lat_max:
+            continue
+        filtered.append(m)
+
+    if not filtered:
+        return []
+
+    # Compute min/max among filtered models for normalization
+    min_cost = min(m.cost for m in filtered)
+    max_cost = max(m.cost for m in filtered) or 1.0
+    min_perf = min(m.performance for m in filtered)
+    max_perf = max(m.performance for m in filtered) or 1.0
+    min_lat  = min(m.latency for m in filtered)
+    max_lat  = max(m.latency for m in filtered) or 1.0
+
+    results = []
+    for m in filtered:
+        # Normalize cost, performance, and latency scores
+        cost_norm = (m.cost - min_cost) / (max_cost - min_cost) if max_cost - min_cost != 0 else 0.0
+        # Directly use model performance since classification is removed
+        perf_norm = (m.performance - min_perf) / (max_perf - min_perf) if max_perf - min_perf != 0 else 0.0
+        lat_norm = (m.latency - min_lat) / (max_lat - min_lat) if max_lat - min_lat != 0 else 0.0
+
+        # We want lower cost and latency, so higher scores when these are low
+        cost_score = 1 - cost_norm
+        lat_score = 1 - lat_norm
+        # We want higher performance, so higher score when performance is high
+        perf_score = perf_norm
+
+        # Combine scores using user-defined weights
+        final_score = alpha * cost_score + beta * perf_score + gamma * lat_score
+
+        results.append({
+            "model_name": m.model_name,
+            "license": m.license,
+            "final_score": final_score,
+            "cost": m.cost,
+            "performance": m.performance,
+            "latency": m.latency,
+            "math_score": m.math_score,
+            "coding_score": m.coding_score,
+            "gk_score": m.gk_score,
+            "input_cost_raw": m.input_cost_raw,      # Added field
+            "output_cost_raw": m.output_cost_raw
+        })
+    print("results before sorting")
+    print(results[:top_k])
+    # Sort results by final_score in descending order
+    results.sort(key=lambda x: x["final_score"], reverse=True)
+    print("**********New results***********")
+    print(results[:top_k])
+    return results[:top_k]
+
+
+#####################################################
+# 3. Sending Query & Fallback Logic                 #
+#####################################################
+async def send_query_to_model(user_query: str, chosen_model: dict, **kwargs):
+    """
+    Asynchronously route the query to the correct handler based on the model's license.
+    """
+    license_type = chosen_model.get("license", "Unknown")
+    model_name = chosen_model.get("model_name")
+
+    if license_type == "OpenAI":
+        try:
+            raw_response = await handle_openai_query_async(user_query, model_name, **kwargs)
+            print(type)
+            query_output = raw_response.choices[0].message.content
+            completion_tokens = int(raw_response.usage.completion_tokens)
+            total_tokens = int(raw_response.usage.total_tokens)
+
+            return {
+                "model_name": model_name,
+                "license_type": license_type,
+                "user_query": user_query,
+                "query_output": query_output,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens,
+                "raw_response": raw_response
+            }
+        except Exception as e:
+            print(f"OpenAI query error: {e}")
+            raise
+
+    elif license_type == "Groq":
+        
+        try:
+            raw_response = await handle_groq_query_async(user_query, model_name, **kwargs)
+            query_output = raw_response.choices[0].message.content
+            completion_tokens = int(raw_response.usage.completion_tokens)
+            total_tokens = int(raw_response.usage.total_tokens)
+
+            return {
+                "model_name": model_name,
+                "license_type": license_type,
+                "user_query": user_query,
+                "query_output": query_output,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens,
+                "raw_response": raw_response
+            }
+        except Exception as e:
+            print(f"OpenAI query error: {e}")
+            raise
+
+    elif license_type == "Opensource":
+        try:
+            raw_response = await handle_aiml_query_async(user_query, model_name, **kwargs)
+            # Access the fields correctly as a dictionary
+            query_output = raw_response["choices"][0]["message"]["content"]
+            completion_tokens = raw_response["usage"]["completion_tokens"]
+            total_tokens = raw_response["usage"]["total_tokens"]
+
+            return {
+                "model_name": model_name,
+                "license_type": license_type,
+                "user_query": user_query,
+                "query_output": query_output,
+                "completion_tokens": int(completion_tokens),
+                "total_tokens": int(total_tokens),
+                "raw_response": raw_response
+            }
+        except Exception as e:
+            print(f"Opensource query error: {e}")
+            raise
+
+
+    elif license_type == "Google":
+        try:
+            raw_response = await handle_google_query_async(user_query, model_name, **kwargs)
+            query_output = raw_response._result.candidates[0].content.parts[0].text
+            completion_tokens = int(raw_response._result.usage_metadata.candidates_token_count)
+            total_tokens = int(raw_response._result.usage_metadata.total_token_count)
+            return {
+                "model_name": model_name,
+                "license_type": license_type,
+                "user_query": user_query,
+                "query_output": query_output,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens,
+                "raw_response": raw_response
+            }
+        except Exception as e:
+            print(f"Google query error: {e}")
+            raise
+
+    elif license_type == "Cohere":
+        try:
+            raw_response = await handle_cohere_query_async(user_query, model_name, **kwargs)
+            query_output = raw_response["message"]["context"][0]["text"]
+            completion_tokens = int(raw_response["usage"]["tokens"]["output_tokens"])
+            total_tokens = int(raw_response["usage"]["tokens"]["input_tokens"]) + completion_tokens
+            return {
+                "model_name": model_name,
+                "license_type": license_type,
+                "user_query": user_query,
+                "query_output": query_output,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens,
+                "raw_response": raw_response
+            }
+        except Exception as e:
+            print(f"Cohere query error: {e}")
+            raise
+
+
+
+
+async def route_with_fallback(user_query: str, candidates: list, max_attempts=3, **kwargs):
+    """
+    Asynchronously try multiple candidate models in descending order of score.
+    """
+    attempts = 0
+    for candidate in candidates:
+        attempts += 1
+        try:
+            response = await send_query_to_model(user_query, candidate, **kwargs)
+            return response
+        except Exception as e:
+            print(f"Attempt {attempts} failed for model {candidate}:")
+            print(e)
+            continue
+
+    raise HTTPException(status_code=500, detail="All candidate models failed during fallback.")

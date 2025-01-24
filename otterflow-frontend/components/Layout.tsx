@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { LayoutDashboard, Key, Gamepad2, Settings, Wallet, LogOut, Cog } from 'lucide-react'
+import { LayoutDashboard, Key, Gamepad2, Settings, Wallet, LogOut, Cog, Store } from 'lucide-react'
 import { ToastContainer, toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 
@@ -17,6 +17,7 @@ const menuItems = [
   { id: 'model-settings', label: 'Model Settings', icon: Cog, link: '/model-settings' },
   { id: 'settings', label: 'User Settings', icon: Settings, link: '/user-settings' },
   { id: 'wallet', label: 'Wallet', icon: Wallet, link: '/wallet' },
+  { id: 'store', label: 'Otter Store', icon: Store, link: '/store' },
 ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {
