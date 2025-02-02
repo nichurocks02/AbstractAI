@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -8,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { AnimatePresence, motion } from "framer-motion"
 import Layout from '@/components/Layout'
 import ModelSettingsForm from '@/components/ModelSettingsForm'
+import useAuth from '@/hooks/useAuth'
 
 interface Model {
   id: string
@@ -19,33 +21,53 @@ interface Model {
 }
 
 export default function ModelSettings() {
+  const { user, loading } = useAuth()
+  const router = useRouter()
+
   const [models, setModels] = useState<Model[]>([])
   const [selectedModel, setSelectedModel] = useState<Model | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
 
-  // Get base URL from env
   const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || ''
 
   useEffect(() => {
-    fetchModels()
-  }, [])
+    if (!loading && user) {
+      fetchModels()
+    }
+  }, [loading, user])
+
+  if (loading) {
+    return (
+      <Layout>
+        <p>Loading user data...</p>
+      </Layout>
+    )
+  }
+
+  if (!user) {
+    router.push('/auth')
+    return (
+      <Layout>
+        <p>Redirecting to /auth...</p>
+      </Layout>
+    )
+  }
 
   const fetchModels = async () => {
     try {
       const response = await fetch(`${baseUrl}/models/get_models`, {
         method: 'GET',
-        credentials: 'include', // Ensure cookies are sent
-      });
+        credentials: 'include',
+      })
       if (!response.ok) {
-        throw new Error(`Error fetching models: ${response.statusText}`);
+        throw new Error(`Error fetching models: ${response.statusText}`)
       }
-      const data = await response.json();
-      setModels(data.models);
+      const data = await response.json()
+      setModels(data.models)
     } catch (error) {
-      console.error('Error fetching models:', error);
+      console.error('Error fetching models:', error)
     }
-  };
-  
+  }
 
   const toggleModel = (modelId: string) => {
     setModels(prevModels =>
@@ -102,7 +124,7 @@ export default function ModelSettings() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <Card 
+            <Card
               className="flex flex-col cursor-pointer hover:shadow-lg transition-shadow duration-300"
               onClick={() => openModelSettings(model)}
             >
@@ -128,6 +150,7 @@ export default function ModelSettings() {
           </motion.div>
         ))}
       </div>
+
       <AnimatePresence>
         {selectedModel && (
           <ModelSettingsForm
@@ -137,6 +160,7 @@ export default function ModelSettings() {
           />
         )}
       </AnimatePresence>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -146,7 +170,7 @@ export default function ModelSettings() {
         <Button
           onClick={saveAllChanges}
           disabled={!hasChanges}
-          className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded"
+          className="bg-teal-600 hover:bg-teal-700 !text-white font-bold py-2 px-4 rounded"
         >
           Save All Changes
         </Button>

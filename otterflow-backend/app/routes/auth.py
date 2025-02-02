@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Request, HTTPException, Response, status, Body
 from sqlalchemy.orm import Session
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi import UploadFile, File
@@ -10,9 +10,10 @@ import shutil
 import requests
 from itsdangerous import URLSafeSerializer, BadSignature
 from datetime import datetime, timezone, timedelta
-
-
-
+from pydantic import BaseModel, Field, validator
+from passlib.context import CryptContext
+import re
+import time
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"]
@@ -26,6 +27,43 @@ serializer = URLSafeSerializer(SESSION_SECRET_KEY, salt="session")
 SESSION_COOKIE_NAME = "session_id"
 SESSION_COOKIE_MAX_AGE = 60 * 60 * 8 * 1  # 8 hours
 
+# Password hashing context
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def get_current_user(
+    request: Request,
+    db: Session = Depends(get_db)
+) -> User:
+    session_token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not session_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    try:
+        session_data = serializer.loads(session_token)
+        if session_data.get("exp") < datetime.now(timezone.utc).timestamp():
+            raise HTTPException(status_code=401, detail="Session expired")
+
+        user_id = session_data.get("user_id")
+        user = db.query(User).filter_by(id=user_id).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+
+        return user
+    except BadSignature:
+        raise HTTPException(status_code=401, detail="Invalid session")
+    
+def no_cache_response(content: dict, status_code: int = 200) -> JSONResponse:
+    """
+    Returns a JSONResponse with no-cache headers.
+    Use it for protected routes if you want to ensure the browser doesn't cache.
+    """
+    response = JSONResponse(content=content, status_code=status_code)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["Surrogate-Control"] = "no-store"
+    return response
 
 # Signup endpoint
 @router.post("/signup")
@@ -34,7 +72,6 @@ async def signup(request: Request, response: Response, db: Session = Depends(get
     email = data.get("email")
     password = data.get("password")
     name = data.get("name")
-    company = data.get("company")  # Optional
 
     if not email or not password or not name:
         raise HTTPException(status_code=400, detail="Email, password, and name are required.")
@@ -236,6 +273,155 @@ async def reset_password(request: Request, db: Session = Depends(get_db)):
 
     return JSONResponse(content={"message": "Password reset successfully."})
 
+
+# LinkedIn OAuth Initiation Endpoint
+@router.get("/login/linkedin")
+async def login_linkedin():
+    """
+    Initiates the LinkedIn OAuth flow by redirecting the user to LinkedIn's authorization page.
+    """
+    linkedin_client_id = os.getenv("LINKEDIN_CLIENT_ID")
+    linkedin_redirect_uri = os.getenv("LINKEDIN_REDIRECT_URI")
+    linkedin_scope = "r_liteprofile r_emailaddress"  # Requesting basic profile and email
+    linkedin_state = secrets.token_urlsafe(16)  # Generate a secure random state
+
+    if not linkedin_client_id or not linkedin_redirect_uri:
+        raise HTTPException(status_code=500, detail="LinkedIn OAuth credentials not configured.")
+
+    # Store the state with an expiry (e.g., 10 minutes)
+    oauth_states[linkedin_state] = datetime.now(timezone.utc) + timedelta(minutes=10)
+
+    authorization_url = (
+        "https://www.linkedin.com/oauth/v2/authorization?"
+        f"response_type=code&client_id={linkedin_client_id}&redirect_uri={linkedin_redirect_uri}&"
+        f"scope={linkedin_scope}&state={linkedin_state}"
+    )
+
+    return RedirectResponse(url=authorization_url)
+
+# LinkedIn OAuth Callback Endpoint
+@router.get("/linkedin/callback")
+async def linkedin_callback(request: Request, response: Response, db: Session = Depends(get_db)):
+    """
+    Handles the callback from LinkedIn after user authorization.
+    Exchanges authorization code for access token, retrieves user info, creates/retrieves user in DB, and sets session cookie.
+    """
+    code = request.query_params.get("code")
+    state = request.query_params.get("state")
+    error = request.query_params.get("error")
+
+    if error:
+        error_description = request.query_params.get("error_description", "Unknown error")
+        raise HTTPException(status_code=400, detail=f"LinkedIn OAuth error: {error_description}")
+
+    if not code or not state:
+        raise HTTPException(status_code=400, detail="Authorization code and state are required.")
+
+    # Verify state parameter
+    state_expiry = oauth_states.get(state)
+    if not state_expiry or state_expiry < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Invalid or expired state parameter.")
+    
+    # Remove state to prevent reuse
+    del oauth_states[state]
+
+    linkedin_client_id = os.getenv("LINKEDIN_CLIENT_ID")
+    linkedin_client_secret = os.getenv("LINKEDIN_CLIENT_SECRET")
+    linkedin_redirect_uri = os.getenv("LINKEDIN_REDIRECT_URI")
+
+    token_url = "https://www.linkedin.com/oauth/v2/accessToken"
+    token_data = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": linkedin_redirect_uri,
+        "client_id": linkedin_client_id,
+        "client_secret": linkedin_client_secret,
+    }
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+
+    try:
+        # Exchange authorization code for access token
+        token_response = requests.post(token_url, data=token_data, headers=headers)
+        token_response.raise_for_status()
+        access_token = token_response.json().get("access_token")
+        expires_in = token_response.json().get("expires_in")
+
+        if not access_token:
+            raise HTTPException(status_code=400, detail="Access token not found in LinkedIn response.")
+
+        # Retrieve user profile information
+        profile_url = "https://api.linkedin.com/v2/me"
+        email_url = "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))"
+        profile_headers = {
+            "Authorization": f"Bearer {access_token}"
+        }
+
+        profile_response = requests.get(profile_url, headers=profile_headers)
+        profile_response.raise_for_status()
+        profile_data = profile_response.json()
+
+        email_response = requests.get(email_url, headers=profile_headers)
+        email_response.raise_for_status()
+        email_data = email_response.json()
+
+        first_name = profile_data.get("localizedFirstName")
+        last_name = profile_data.get("localizedLastName")
+        full_name = f"{first_name} {last_name}"
+        email = email_data.get("elements", [{}])[0].get("handle~", {}).get("emailAddress")
+
+        if not email:
+            raise HTTPException(status_code=400, detail="Email not found in LinkedIn profile.")
+
+        # Check if user exists
+        user = db.query(User).filter(User.email == email).first()
+
+        if not user:
+            # Create new user
+            user = User(
+                email=email,
+                name=full_name,
+                auth_method='linkedin',
+                is_email_verified=True  # Assume LinkedIn email is verified
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+            # Initialize wallet with $5 free credit
+            wallet = Wallet(user_id=user.id, balance=DEFAULT_WALLET_BALANCE, email=user.email, name=user.name)
+            db.add(wallet)
+            db.commit()
+            db.refresh(wallet)
+
+        # Create a signed session token
+        session_token = serializer.dumps({
+            "user_id": user.id,
+            "exp": (datetime.now(timezone.utc) + timedelta(seconds=SESSION_COOKIE_MAX_AGE)).timestamp()
+        })
+
+        # Create RedirectResponse to frontend dashboard
+        frontend_dashboard_url = os.getenv("FRONTEND_DASHBOARD_URL", "http://localhost:3000/dashboard")
+        redirect_response = RedirectResponse(url=frontend_dashboard_url)
+
+        # Set the session cookie
+        redirect_response.set_cookie(
+            key=SESSION_COOKIE_NAME,
+            value=session_token,
+            httponly=True,
+            secure=True,           # Set to True in production with HTTPS
+            samesite="none",
+            max_age=SESSION_COOKIE_MAX_AGE,
+            path="/",
+        )
+
+        return redirect_response
+
+    except requests.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"LinkedIn OAuth error: {str(e)}")
+
+
 # Google login endpoints already implemented
 
 @router.get("/login/google")
@@ -243,7 +429,7 @@ async def login_google():
     google_client_id = os.getenv("GOOGLE_CLIENT_ID")
     google_redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
     return {
-        "url": f"https://accounts.google.com/o/oauth2/auth?response_type=code&client_id={google_client_id}&redirect_uri={google_redirect_uri}&scope=openid%20profile%20email&access_type=offline"
+        "url": f"https://accounts.google.com/o/oauth2/auth?prompt=login&response_type=code&client_id={google_client_id}&redirect_uri={google_redirect_uri}&scope=openid%20profile%20email&access_type=offline"
     }
 
 @router.get("/google")
@@ -291,7 +477,7 @@ async def auth_google(code: str, request: Request, response: Response, db: Sessi
             db.refresh(user)
 
             # Initialize wallet with $5 free credit
-            wallet = Wallet(user_id=user.id, balance=DEFAULT_WALLET_BALANCE, email = user.email, name=user.name)
+            wallet = Wallet(user_id=user.id, balance=DEFAULT_WALLET_BALANCE)
             db.add(wallet)
             db.commit()
             db.refresh(wallet)
@@ -322,71 +508,99 @@ async def auth_google(code: str, request: Request, response: Response, db: Sessi
 
     except requests.RequestException as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+    
 @router.get("/user")
-async def get_current_user(request: Request, db: Session = Depends(get_db)):
-    session_token = request.cookies.get(SESSION_COOKIE_NAME)
-    print(f" the session cookie is :{session_token}")
-    if not session_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+async def get_current_user_route(
+    user: User = Depends(get_current_user)  # Re-use the dependency
+):
+    """
+    This route returns the authenticated user's data.
+    Also sets no-cache headers.
+    """
+    response_data = {
+        "id": user.id,
+        "email": user.email,
+        "name": user.name,
+        "avatar": user.avatar or f"/auth/default-avatar?name={user.name}",
+        "auth_method": user.auth_method
+    }
 
-    try:
-        session_data = serializer.loads(session_token)
-        # Check for expiration
-        if session_data.get("exp") < datetime.now(timezone.utc).timestamp():
-            raise HTTPException(status_code=401, detail="Session expired")
-
-        user_id = session_data.get("user_id")
-        user = db.query(User).filter_by(id=user_id).first()
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-
-        return {
-                "id": user.id, 
-                "email": user.email, 
-                "name": user.name,
-                "avatar": user.avatar or f"/auth/default-avatar?name={user.name}",
-                "auth_method": user.auth_method,
-                }
-
-    except BadSignature:
-        raise HTTPException(status_code=401, detail="Invalid session")
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid session")
+    # Now return a JSONResponse with no-cache headers
+    response = JSONResponse(content=response_data)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @router.get("/logout")
 async def logout(response: Response):
-    # Optionally, you can include the frontend login URL in the response if needed
-    # frontend_login_url = os.getenv("FRONTEND_LOGIN_URL", "http://localhost:3000/auth")
     response = JSONResponse(content={"message": "Successfully logged out."})
-    response.delete_cookie(SESSION_COOKIE_NAME, path="/")
+    # Delete with matching domain, samesite, secure, and path
+    response.delete_cookie(
+        SESSION_COOKIE_NAME,
+        path="/",
+        domain="localhost",   # Must match the login cookie
+        samesite="none",
+        secure=True
+    )
+    # Also ensure no-cache headers
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["Surrogate-Control"] = "no-store"
     return response
 
 
+@router.get("/default-avatar")
+async def default_avatar(name: str):
+    svg = generate_initials_avatar(name)
+    return Response(content=svg, media_type="image/svg+xml")
+
+class UpdateProfile(BaseModel):
+    name: str
 @router.post("/upload-avatar")
 async def upload_avatar(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    user: dict = Depends(get_current_user),
+    user: User = Depends(get_current_user),  # Changed from dict to User
 ):
-    user_id = user["id"]  # Extract the ID from the user dictionary
+    user_id = user.id  # Changed from user["id"] to user.id
     user_record = db.query(User).filter(User.id == user_id).first()
     if not user_record:
         raise HTTPException(status_code=404, detail="User not found")
 
     upload_dir = "uploaded_avatars"
     os.makedirs(upload_dir, exist_ok=True)
-    file_path = os.path.join(upload_dir, file.filename)
+    # Prevent filename collision by adding timestamp
+    file_extension = os.path.splitext(file.filename)[1]
+    new_filename = f"user_{user_id}_{int(time.time())}{file_extension}"
+    file_path = os.path.join(upload_dir, new_filename)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
     user_record.avatar = file_path
     db.commit()
-    return {"message": "Avatar uploaded successfully", "avatar_url": file_path}
+    db.refresh(user_record)
+
+    # Return the avatar URL relative to your frontend
+    avatar_url = f"/{file_path}"
+
+    return {"message": "Avatar uploaded successfully", "avatar_url": avatar_url}
 
 
-@router.get("/default-avatar/")
-async def default_avatar(name: str):
-    svg = generate_initials_avatar(name)
-    return Response(content=svg, media_type="image/svg+xml")
-
+@router.post("/update-profile")
+async def update_profile(
+    profile: UpdateProfile,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),  # Changed from dict to User
+):
+    user_id = user.id  # Changed from user["id"] to user.id
+    user_record = db.query(User).filter(User.id == user_id).first()
+    if not user_record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    user_record.name = profile.name
+    db.commit()
+    db.refresh(user_record)
+    return {"message": "Profile updated successfully", "name": user_record.name}

@@ -3,7 +3,7 @@ import asyncio
 import google.generativeai as genai
 from fastapi import HTTPException
 from dotenv import load_dotenv
-load_dotenv() 
+load_dotenv("otterflow-backend/.env") 
 
 # Configure the API key
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))

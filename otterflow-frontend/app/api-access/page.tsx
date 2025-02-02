@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,22 +19,57 @@ interface ApiKey {
 }
 
 export default function APIAccess() {
+  const router = useRouter()
+
+  // 1) User authentication states
+  const [user, setUser] = useState<any>(null)
+  const [loadingUser, setLoadingUser] = useState(true)
+
+  // 2) API key states
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [loadingKeys, setLoadingKeys] = useState(false)
   const [newApiName, setNewApiName] = useState('')
 
-  // Fetch API keys from backend on component mount
+  // Fetch user on component mount
   useEffect(() => {
-    loadApiKeys()
-  }, [])
+    const fetchUser = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/user`, {
+          credentials: 'include',
+        })
+        if (!res.ok) {
+          // If /auth/user is not found (404) or unauthorized (401),
+          // the user is not authenticated
+          throw new Error('Not authenticated')
+        }
+        const data = await res.json()
+        setUser(data)
+      } catch (error) {
+        // Redirect to /auth or show a message if you prefer
+        router.replace('/auth')
+      } finally {
+        setLoadingUser(false)
+      }
+    }
 
+    fetchUser()
+  }, [router])
+
+  // Once we know user is authenticated, load API keys
+  useEffect(() => {
+    if (!loadingUser && user) {
+      loadApiKeys()
+    }
+  }, [loadingUser, user])
+
+  // 3) Fetch API keys
   const loadApiKeys = async () => {
     try {
       setLoadingKeys(true)
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api-key/list`, {
         credentials: 'include',
       })
-  
+
       if (response.status === 404) {
         // No API keys found; treat as empty
         setApiKeys([])
@@ -51,7 +87,6 @@ export default function APIAccess() {
       setLoadingKeys(false)
     }
   }
-  
 
   const handleGenerateNewKey = async () => {
     if (!newApiName.trim()) {
@@ -68,9 +103,7 @@ export default function APIAccess() {
       })
       if (response.ok) {
         const data = await response.json()
-        // data.api_key is the newly generated key
         toast.success(`API Key "${newApiName}" created successfully!`)
-        // Reload keys to reflect changes
         loadApiKeys()
         setNewApiName('')
       } else {
@@ -86,7 +119,6 @@ export default function APIAccess() {
   // Delete the key permanently
   const handleDeleteKey = async (apiName: string) => {
     try {
-      // This calls DELETE /api-key/{api_name}/delete for permanent deletion
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api-key/${apiName}/delete`, {
         method: 'DELETE',
         credentials: 'include',
@@ -104,6 +136,17 @@ export default function APIAccess() {
     }
   }
 
+  // 4) Handle loading or unauthenticated states
+  if (loadingUser) {
+    return <Layout><p>Loading user data...</p></Layout>
+  }
+  // If user is null, we likely are already redirecting in the fetchUser catch block
+  // but let's handle if user is forcibly set to null for any reason
+  if (!user) {
+    return <Layout><p>Redirecting to Login...</p></Layout>
+  }
+
+  // 5) If we got here, user is authenticated
   return (
     <Layout>
       <h1 className="text-3xl font-bold mb-6">API Access</h1>

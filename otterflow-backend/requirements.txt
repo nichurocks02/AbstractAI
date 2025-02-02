@@ -76,9 +76,12 @@ passlib
 pillow
 pip
 psycopg2-binary
+pgvector
+pgvector-sqlalchemy
 python-multipart
 propcache
 pydantic
+pydantic[email]
 pydantic-core
 pydantic-settings
 pypdf

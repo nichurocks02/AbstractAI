@@ -47,6 +47,7 @@ async def handle_user_query(
     db: Session = Depends(get_db)
 ):
     # Parse JSON body to extract user_input
+    print(f"user_query: {user_query}")
     try:
         data = await request.json()
     except Exception as e:
@@ -92,8 +93,9 @@ async def handle_user_query(
         gamma=gamma,
         top_k=3
     )
-    if not top_candidates:
-        raise HTTPException(status_code=400, detail="No models found in database")
+    print(f"top_candidates : {top_candidates}")
+    if not top_candidates or top_candidates == []:
+        raise HTTPException(status_code=400, detail="No models found for you requirements, please retry by changing parameters!!!")
 
     # Route with fallback and measure latency
     start_time = time.perf_counter()

@@ -1,67 +1,119 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { LineChart, PieChart } from '@/components/ui/chart'
 import { Bell, ArrowRight } from 'lucide-react'
 import Layout from '@/components/Layout'
 import useAuth from '../../hooks/useAuth'
-import { useRouter } from 'next/navigation'
+import { motion } from "framer-motion"
+import { toast } from 'react-toastify'
 
 export default function Dashboard() {
   const { user, loading } = useAuth()
   const router = useRouter()
+
   const [metrics, setMetrics] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Define a palette of colors for the pie chart slices.
+  // A palette of colors for the pie chart slices
   const pieColors = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40"]
 
-  useEffect(() => {
-    console.log({ user, loading })
-    if (!loading && !user) {
-      console.log("User not authenticated. Redirecting to /auth")
-      router.push('/auth')
-    }
-  }, [user, loading, router])
+  // 1) Always declare hooks at the top
+  //    Conditionally run logic inside them, but don't skip the hook entirely.
 
+  // This effect handles redirect if user is not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/auth')
+    }
+  }, [loading, user, router])
+
+  // This effect handles fetching metrics once user is authenticated
   useEffect(() => {
     async function fetchMetrics() {
       try {
-        console.log("Fetching metrics...")
         const backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
         const response = await fetch(`${backendURL}/dashboard/metrics`, {
           credentials: 'include'
         })
-        console.log("Response status:", response.status)
         if (!response.ok) {
-          console.error("Response not OK:", response.statusText)
           throw new Error(`Failed to fetch metrics: ${response.statusText}`)
         }
         const data = await response.json()
-        console.log("Metrics data:", data)
         setMetrics(data)
-      } catch (error) {
-        console.error('Error fetching metrics:', error)
+      } catch (err) {
+        console.error('Error fetching metrics:', err)
         setError('Failed to load dashboard metrics.')
       }
     }
+
     if (!loading && user) {
       fetchMetrics()
     }
   }, [loading, user])
 
-  if (loading) return <p>Loading...</p>
-  if (error) return <p>{error}</p>
-  if (!metrics) return <p>Loading...</p>
+  // 2) Now handle rendering
 
-  // Assign distinct colors to each model usage data point for the pie chart.
+  // If still loading user state, show a quick message
+  if (loading) {
+    return (
+      <Layout>
+        <p>Loading user data...</p>
+      </Layout>
+    )
+  }
+
+  // If user is null, we likely triggered router.replace('/auth')
+  // so optionally show a message (the user is probably already being redirected)
+  if (!user) {
+    return (
+      <Layout>
+        <p>Redirecting to /auth...</p>
+      </Layout>
+    )
+  }
+
+  // If there's an error, show it
+  if (error) {
+    return (
+      <Layout>
+        <p>{error}</p>
+      </Layout>
+    )
+  }
+
+  // If metrics are not yet fetched, show a loading message
+  if (!metrics) {
+    return (
+      <Layout>
+        <p>Loading dashboard metrics...</p>
+      </Layout>
+    )
+  }
+
+  // Once we have metrics, display the content
   const modelUsageDataWithColors = metrics.model_usage_distribution.map(
     (item: any, index: number) => ({
       ...item,
       color: pieColors[index % pieColors.length],
     })
+  )
+
+  // Simple placeholder for empty chart data
+  const ChartPlaceholder = ({ message }: { message: string }) => (
+    <div className="flex flex-col items-center justify-center h-48 text-gray-500">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="text-center"
+      >
+        <div className="text-4xl mb-2">📊</div>
+        <div>{message}</div>
+      </motion.div>
+    </div>
   )
 
   return (
@@ -125,7 +177,11 @@ export default function Dashboard() {
             <CardTitle>API Usage Over Time</CardTitle>
           </CardHeader>
           <CardContent className="pl-2">
-            <LineChart data={metrics.api_usage_over_time} xAxis="name" yAxis="value" />
+            {metrics.api_usage_over_time && metrics.api_usage_over_time.length > 0 ? (
+              <LineChart data={metrics.api_usage_over_time} xAxis="name" yAxis="value" />
+            ) : (
+              <ChartPlaceholder message="No API usage data available yet." />
+            )}
           </CardContent>
         </Card>
 
@@ -135,7 +191,11 @@ export default function Dashboard() {
             <CardTitle>Model Usage Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            <PieChart data={modelUsageDataWithColors} />
+            {modelUsageDataWithColors && modelUsageDataWithColors.length > 0 ? (
+              <PieChart data={modelUsageDataWithColors} />
+            ) : (
+              <ChartPlaceholder message="No model usage data available yet." />
+            )}
           </CardContent>
         </Card>
       </div>
@@ -147,11 +207,15 @@ export default function Dashboard() {
             <CardTitle>Recent Activity</CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-2">
-              {metrics.recent_activity.map((activity: string, idx: number) => (
-                <li key={idx}>{activity}</li>
-              ))}
-            </ul>
+            {metrics.recent_activity && metrics.recent_activity.length > 0 ? (
+              <ul className="space-y-2">
+                {metrics.recent_activity.map((activity: string, idx: number) => (
+                  <li key={idx}>{activity}</li>
+                ))}
+              </ul>
+            ) : (
+              <ChartPlaceholder message="No recent activity." />
+            )}
           </CardContent>
         </Card>
 
@@ -161,14 +225,18 @@ export default function Dashboard() {
             <CardTitle>Notifications</CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-2">
-              {metrics.notifications.map((note: string, idx: number) => (
-                <li key={idx} className="flex items-center">
-                  <Bell className="mr-2 h-4 w-4" />
-                  {note}
-                </li>
-              ))}
-            </ul>
+            {metrics.notifications && metrics.notifications.length > 0 ? (
+              <ul className="space-y-2">
+                {metrics.notifications.map((note: string, idx: number) => (
+                  <li key={idx} className="flex items-center">
+                    <Bell className="mr-2 h-4 w-4" />
+                    {note}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <ChartPlaceholder message="No notifications." />
+            )}
           </CardContent>
         </Card>
       </div>
