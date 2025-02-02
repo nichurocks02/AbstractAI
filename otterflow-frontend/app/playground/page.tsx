@@ -156,7 +156,14 @@ export default function Playground() {
       })
 
       if (!response.ok) {
-        throw new Error(`Error processing query: ${response.statusText}`)
+        const errorData = await response.json()
+        // Display specific error message if available
+      const errorMessage = errorData.detail || "No models available for your selected parameters. Please retry with new ones."
+      setMessages((prev) => [
+        ...prev,
+        { role: "system", content: errorMessage, model: null },
+      ])
+      return
       }
       const data = await response.json()
 
@@ -166,7 +173,7 @@ export default function Playground() {
       console.error("Error processing query:", error)
       setMessages((prev) => [
         ...prev,
-        { role: "system", content: "An error occurred while processing your request.", model: null },
+        { role: "system", content: "No models available for your selected parameters. Please retry with new ones.", model: null },
       ])
     }
 

@@ -65,7 +65,8 @@ export default function UserSettings() {
 
       if (response.ok) {
         const updatedUser = await response.json()
-        setUser(updatedUser)
+        // Merge updatedUser with existing user state to preserve 'name' and other properties
+        setUser(prev => ({ ...prev, ...updatedUser }))
         toast.success('Avatar updated successfully!')
       } else {
         toast.error('Failed to upload avatar. Please try again.')
@@ -109,9 +110,6 @@ export default function UserSettings() {
       <Tabs defaultValue="profile" className="space-y-4">
         <TabsList className="bg-teal-800/30">
           <TabsTrigger value="profile" className="data-[state=active]:bg-teal-700">Profile</TabsTrigger>
-          {user.auth_method !== 'google' && (
-            <TabsTrigger value="security" className="data-[state=active]:bg-teal-700">Security</TabsTrigger>
-          )}
           <TabsTrigger value="notifications" className="data-[state=active]:bg-teal-700">Notifications</TabsTrigger>
           <TabsTrigger value="privacy" className="data-[state=active]:bg-teal-700">Privacy</TabsTrigger>
         </TabsList>
@@ -128,11 +126,15 @@ export default function UserSettings() {
                   <AvatarImage
                     src={
                       user.avatar
-                        ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/${user.avatar}`
-                        : `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/default-avatar?name=${encodeURIComponent(user.name)}`
-                    }
+                        ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/${user.avatar}?t=${new Date().getTime()}`
+                        :`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/default-avatar?name=${encodeURIComponent(user.name)}&t=${new Date().getTime()}`                    }
                   />
-                  <AvatarFallback>{user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}</AvatarFallback>
+                  <AvatarFallback>
+                    {/* Safeguard against undefined or empty user.name */}
+                    {user.name
+                      ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
+                      : 'U'}
+                  </AvatarFallback>
                 </Avatar>
                 <div>
                   <input
@@ -164,7 +166,7 @@ export default function UserSettings() {
                   id="email"
                   type="email"
                   value={user.email}
-                  onChange={(e) => setUser({ ...user, email: e.target.value })}
+                  readOnly={true}
                 />
               </div>
               <Button
@@ -176,32 +178,6 @@ export default function UserSettings() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {user.auth_method !== 'google' && (
-          <TabsContent value="security">
-            <Card>
-              <CardHeader>
-                <CardTitle>Password Management</CardTitle>
-                <CardDescription>Update your password and security settings</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-password">New Password</Label>
-                  <Input id="new-password" type="password" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm New Password</Label>
-                  <Input id="confirm-password" type="password" />
-                </div>
-                <Button>Update Password</Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
 
         <TabsContent value="notifications">
           <Card>

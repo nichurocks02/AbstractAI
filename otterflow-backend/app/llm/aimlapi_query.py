@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from fastapi import HTTPException
 
 # Load environment variables
-load_dotenv("/Users/india/AbstractAI/otterflow-backend/.env")
+load_dotenv("otterflow-backend/.env")
 
 # Bearer token for authorization
 authorization_bearer_token = "Bearer " + str(os.getenv("AI_API_KEY"))

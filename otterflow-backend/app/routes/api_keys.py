@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.models import User, APIKey
 from app.db.database import get_db
 from app.utility.utility import generate_unique_api_key, cost_per_query
+from app.routes.auth import get_current_user, no_cache_response
 from datetime import datetime
 from pydantic import BaseModel
 from itsdangerous import URLSafeSerializer, BadSignature
@@ -37,28 +38,14 @@ class APIKeyOut(BaseModel):
         orm_mode = True
         from_attributes = True
 
-def get_current_user_from_cookie(request: Request, db: Session):
-    session_token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not session_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    try:
-        session_data = serializer.loads(session_token)
-        user_id = session_data.get("user_id")
-    except BadSignature:
-        raise HTTPException(status_code=401, detail="Invalid session")
-    
-    user = db.query(User).get(user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return user
 @router.post("/generate_api_key")
 async def generate_api_key(
     request_body: APIKeyRequest,
-    request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),  # <-- session validation
 ):
-    user = get_current_user_from_cookie(request, db)
-    api_name = request_body.api_name  # Extract from JSON body
+    # user is guaranteed valid from get_current_user
+    api_name = request_body.api_name
 
     wallet = user.wallet
     if not wallet:
@@ -87,9 +74,9 @@ async def generate_api_key(
     return {"api_key": api_key_value, "status": "active", "wallet_balance": wallet.balance}
 
 @router.put("/{api_name}/status")
-async def update_api_key_status(api_name: str, is_active: bool, request: Request, db: Session = Depends(get_db)):
-    user = get_current_user_from_cookie(request, db)
-
+async def update_api_key_status(api_name: str, is_active: bool, db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)):
+    
     api_key = db.query(APIKey).filter_by(user_id=user.id, api_name=api_name).first()
     if not api_key:
         raise HTTPException(status_code=404, detail="API key not found")
@@ -103,9 +90,9 @@ async def update_api_key_status(api_name: str, is_active: bool, request: Request
     return {"message": f"API key status updated to {'active' if is_active else 'inactive'}"}
 
 @router.delete("/{api_name}/delete")
-async def delete_api_key(api_name: str, request: Request, db: Session = Depends(get_db)):
-    user = get_current_user_from_cookie(request, db)
-
+async def delete_api_key(api_name: str, db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)):
+    
     api_key = db.query(APIKey).filter_by(user_id=user.id, api_name=api_name).first()
     if not api_key:
         raise HTTPException(status_code=404, detail="API key not found")
@@ -116,8 +103,8 @@ async def delete_api_key(api_name: str, request: Request, db: Session = Depends(
     return {"message": "API key deleted"}
 
 @router.get("/list")
-async def list_api_keys(request: Request, db: Session = Depends(get_db)):
-    user = get_current_user_from_cookie(request, db)
+async def list_api_keys(db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)):
     
     api_keys = db.query(APIKey).filter_by(user_id=user.id).all()
     if not api_keys:

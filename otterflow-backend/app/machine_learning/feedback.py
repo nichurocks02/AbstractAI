@@ -30,5 +30,5 @@ def recompute_model_io_ratio(db: Session):
     all_models = db.query(ModelMetadata).all()
     for model in all_models:
         # Use computed ratio or default to 1.0 if no data
-        model.io_ratio = ratios.get(model.model_name, 1.0)
+        model.io_ratio = ratios.get(model.model_name, 3.0)
     db.commit()

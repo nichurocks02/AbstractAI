@@ -34,16 +34,6 @@ class ModelMetadata(Base):
     top_p = Column(Float,nullable=False)
     temperature = Column(Float, nullable=False)
     io_ratio = Column(Float,nullable=False)
-'''
-# app/db/models.py (expanded)
-class ModelUsage(Base):
-    __tablename__ = "model_usage"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    model_name = Column(String, nullable=False)
-    input_tokens = Column(Integer, nullable=False)
-    output_tokens = Column(Integer, nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-'''
 
 # User model for storing user information
 class User(Base):
@@ -62,6 +52,7 @@ class User(Base):
     api_keys = relationship("APIKey", back_populates="user")
     query_logs = relationship("QueryLog", back_populates="user")
     otps = relationship("OTP", back_populates="user")  # Relationship to OTP
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)  # Added column
 
 # OTP model for email verification and password reset
 class OTP(Base):
@@ -95,8 +86,6 @@ class Wallet(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)  # PostgreSQL
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, unique=True)
     balance = Column(Float, default=500)  # Default balance in cents ($5)
-    email = Column(String, unique=True, nullable=False)
-    name = Column(String, nullable=False)
     # Relationship back to the user
     user = relationship("User", back_populates="wallet")
 
@@ -123,3 +112,16 @@ class QueryLog(Base):
 
     user = relationship("User", back_populates="query_logs")
 
+
+class Email(Base):
+    __tablename__ = "emails"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    subject = Column(String, nullable=False)
+    body = Column(Text, nullable=False)
+    template = Column(String, nullable=False)
+    recipients = Column(String, nullable=False)  # Comma-separated emails
+    sent_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
+    sent_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    sender = relationship("User")

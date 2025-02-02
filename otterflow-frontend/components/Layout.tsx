@@ -1,4 +1,4 @@
-'use client'
+// Layout.tsx
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -23,6 +23,7 @@ const menuItems = [
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(true)
   const [user, setUser] = useState<any>(null)
+  const [avatarCacheBuster] = useState(() => Date.now())
   const pathname = usePathname()
   const router = useRouter()
 
@@ -30,7 +31,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     // Fetch user data on component mount
     const fetchUser = async () => {
       try {
-        const response = await fetch('https://localhost/api/auth/user', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/user`, {
           credentials: 'include',
           mode: 'cors',
         })
@@ -60,6 +61,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       })
 
       if (response.ok) {
+        setUser(null) // Clear user state
         toast.success('Successfully logged out!')
         router.push('/')
       } else {
@@ -94,12 +96,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <AvatarImage
                     src={
                       user.avatar
-                        ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/${user.avatar}`
-                        : `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/default-avatar?name=${encodeURIComponent(user.name || '')}`
+                        // 2) Use the stable cacheBuster
+                        ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/${user.avatar}?t=${avatarCacheBuster}`
+                        : `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/default-avatar?name=${encodeURIComponent(user.name || "")}&t=${avatarCacheBuster}`
                     }
-                    alt={user.name || 'User'}
+                    alt={user.name || "User"}
                   />
-                  <AvatarFallback>{user.name.split(' ').map((n) => n[0]).join('').toUpperCase()}</AvatarFallback>
+                  <AvatarFallback>
+                    {user.name
+                      ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
+                      : 'U'}
+                  </AvatarFallback>
                 </Avatar>
               ) : (
                 <Avatar>
