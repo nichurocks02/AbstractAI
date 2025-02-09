@@ -110,8 +110,8 @@ export default function UserSettings() {
       <Tabs defaultValue="profile" className="space-y-4">
         <TabsList className="bg-teal-800/30">
           <TabsTrigger value="profile" className="data-[state=active]:bg-teal-700">Profile</TabsTrigger>
-          <TabsTrigger value="notifications" className="data-[state=active]:bg-teal-700">Notifications</TabsTrigger>
-          <TabsTrigger value="privacy" className="data-[state=active]:bg-teal-700">Privacy</TabsTrigger>
+          {/* <TabsTrigger value="notifications" className="data-[state=active]:bg-teal-700">Notifications</TabsTrigger>
+           <TabsTrigger value="privacy" className="data-[state=active]:bg-teal-700">Privacy</TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="profile">
@@ -178,57 +178,7 @@ export default function UserSettings() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="notifications">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
-              <CardDescription>Manage your notification settings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="email-notifications"
-                  checked={emailNotifications}
-                  onCheckedChange={setEmailNotifications}
-                />
-                <Label htmlFor="email-notifications">Receive Email Notifications</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="in-app-notifications"
-                  checked={inAppNotifications}
-                  onCheckedChange={setInAppNotifications}
-                />
-                <Label htmlFor="in-app-notifications">Receive In-App Notifications</Label>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="privacy">
-          <Card>
-            <CardHeader>
-              <CardTitle>Data Privacy Settings</CardTitle>
-              <CardDescription>Manage your data handling preferences</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="data-retention"
-                  checked={dataRetention}
-                  onCheckedChange={setDataRetention}
-                />
-                <Label htmlFor="data-retention">Allow data retention for improving services</Label>
-              </div>
-              <p className="text-sm text-teal-300">
-                We comply with GDPR, CCPA, and other applicable data protection regulations.
-              </p>
-              <Button variant="outline">Request Data Export</Button>
-              <Button variant="destructive">Delete Account</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        
       </Tabs>
     </Layout>
   )

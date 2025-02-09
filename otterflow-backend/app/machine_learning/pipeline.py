@@ -6,15 +6,55 @@ import os
 import json
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from typing import Optional
 
 # Import your DB model
-from app.db.models import ModelMetadata
+from app.db.models import ModelMetadata, UserBanditStats
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
 #Import llm function calls
 from app.llm.openai_query import handle_openai_query_async
 from app.llm.groq_query import handle_groq_query_async
 from app.llm.google_query import handle_google_query_async
 from app.llm.aimlapi_query import handle_aiml_query_async
 from app.llm.cohere_query import handle_cohere_query_async
+
+
+# -------------------------------------------
+# 0. Domain detection & similarity
+# -------------------------------------------
+def detect_domain(user_query: str, previous_query: Optional[str] = None) -> str:
+    """
+    If previous_query is given, compute a simple TF-IDF similarity.
+    If sim >= 0.5 => 'same_domain', else 'new_domain'.
+    Real production might do embeddings, etc.
+    """
+    if not previous_query:
+        return "new_domain"
+
+    vectorizer = TfidfVectorizer().fit([user_query, previous_query])
+    tfidf = vectorizer.transform([user_query, previous_query])
+    sim = cosine_similarity(tfidf[0], tfidf[1])[0][0]
+    if sim >= 0.5:
+        return "same_domain"
+    else:
+        return "new_domain"
+
+
+def are_queries_similar(q1: str, q2: str, threshold=0.7) -> bool:
+    """
+    A stricter similarity function for re-query detection.
+    If sim >= 0.7 => consider them "the same" question.
+    """
+    if not q1 or not q2:
+        return False
+    vectorizer = TfidfVectorizer().fit([q1, q2])
+    tfidf = vectorizer.transform([q1, q2])
+    sim = cosine_similarity(tfidf[0], tfidf[1])[0][0]
+    return sim >= threshold
+
 #####################################################
 # 1. Zero-shot classification                       #
 #####################################################
