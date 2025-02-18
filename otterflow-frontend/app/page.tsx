@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Brain, Cpu, BarChart, Database, Zap } from 'lucide-react'
+import { SiDiscord } from "react-icons/si"
 import { motion, useAnimation, AnimatePresence } from 'framer-motion'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import { ToastContainer } from 'react-toastify' // Import ToastContainer
@@ -45,11 +46,12 @@ export default function LandingPage() {
             <Link className="text-sm font-medium hover:text-teal-400 transition-colors" href="#features">
               Features
             </Link>
-            <Link className="text-sm font-medium hover:text-teal-400 transition-colors" href="#pricing">
-              Pricing
+            <Link className="text-sm font-medium hover:text-teal-400 transition-colors" href="/enterprise" passHref>
+              Enterprise
             </Link>
-            <Link className="text-sm font-medium hover:text-teal-400 transition-colors" href="/onboarding">
-              Onboarding
+            {/* Discord Icon Link */}
+            <Link className="hover:opacity-80" title="Join our Discord" href="https://discord.gg/yTP8C7zs" passHref>
+              <SiDiscord className="h-5 w-5 text-teal-300" />
             </Link>
             <Link href="/auth" passHref>
               <Button variant="ghost" className="text-sm font-medium hover:text-teal-400 transition-colors">
@@ -104,9 +106,13 @@ export default function LandingPage() {
                   <Button variant="outline" className="bg-teal-600 text-white border-white hover:bg-white/20 dark:bg-teal-500 dark:hover:bg-teal-600" onClick={handleGetStarted}>
                     Get Started
                   </Button>
-                  <Button variant="outline" className="bg-teal-600 text-white border-white hover:bg-white/20 dark:border-teal-400 dark:text-teal-400 dark:hover:bg-teal-400/20">
-                    Learn More
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                  <Button
+                      variant="outline"
+                      className="bg-teal-600 text-white border-white hover:bg-white/20 dark:border-teal-400 dark:text-teal-400 dark:hover:bg-teal-400/20"
+                      onClick={() => window.location.href = '/onboarding'}
+                    >
+                      Take a Tour
+                      <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </motion.div>
               </div>

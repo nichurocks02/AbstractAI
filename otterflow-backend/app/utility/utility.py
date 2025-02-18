@@ -26,7 +26,7 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 EMAIL_FROM = os.getenv("EMAIL_FROM", EMAIL_HOST_USER)
 
-def send_email(to_email: str, subject: str, body: str):
+def send_email(to_email: str, subject: str, body: str, html: bool = False):
     if not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD:
         raise HTTPException(status_code=500, detail="Email server credentials not configured.")
     
@@ -36,6 +36,14 @@ def send_email(to_email: str, subject: str, body: str):
     msg['To'] = to_email
     msg.set_content(body)
     
+    if html:
+        # Set a plain-text fallback
+        msg.set_content("This email contains HTML content. Please view it in an HTML-capable email client.")
+        # Add the HTML version
+        msg.add_alternative(body, subtype='html')
+    else:
+        msg.set_content(body)
+    
     try:
         with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as server:
             server.starttls()
@@ -43,7 +51,7 @@ def send_email(to_email: str, subject: str, body: str):
             server.send_message(msg)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
-
+    
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
@@ -53,7 +61,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def generate_otp(length: int = 6) -> str:
     return ''.join(random.choices(string.digits, k=length))
 
-DEFAULT_WALLET_BALANCE = 500  # $5.00 in cents
+DEFAULT_WALLET_BALANCE = 100  # $1.00 in cents
 
 def generate_unique_api_key():
     return f"of-{secrets.token_hex(32)}"
@@ -82,17 +90,15 @@ import random
 
 def generate_initials_avatar(name: str) -> str:
     initials = "".join([word[0].upper() for word in name.split()])
-    colors = [
+    '''colors = [
         "#FF5733", "#33FF57", "#3357FF", "#FF33A8", "#FFC133", "#A833FF", "#33FFF4"
     ]  # Add more colors if needed
     bg_color = random.choice(colors)
-
+    '''
     svg = f"""
     <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
-        <rect width="100" height="100" fill="{bg_color}" />
-        <text x="50%" y="50%" font-size="40" fill="#FFF" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif">{initials}</text>
+        <rect width="100" height="100" fill="white" />
+        <text x="50%" y="50%" font-size="40" fill="#000" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif">{initials}</text>
     </svg>
     """
     return svg
-
-

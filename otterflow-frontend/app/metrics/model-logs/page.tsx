@@ -1,92 +1,147 @@
-"use client"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart, LineChart, PieChart } from "@/components/ui/chart"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import Layout from "@/components/Layout"
+"use client";
 
+import React, { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart, LineChart, PieChart } from "@/components/ui/chart";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import Layout from "@/components/Layout";
+
+// Define interfaces for the metrics
+interface ConfigurationImpact {
+  setting: string;
+  avgCost: number;
+  avgLatency: number;
+}
+
+// Define interfaces for the overall metrics if needed
+interface Metrics {
+  model_usage_distribution: any[]; // Adjust types as needed
+  daily_model_cost: any[];
+  model_performance: any[];
+  performance_scores: any[];
+  configuration_impact: ConfigurationImpact[];
+}
+
+// You can define the API URL here or load it from an environment variable:
+
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 export default function ModelLogsPage() {
-  // Mock data for charts
-  const modelUsageData = [
-    { name: "GPT-3", value: 60, queries: 1200 },
-    { name: "GPT-4", value: 30, queries: 600 },
-    { name: "DALL-E", value: 10, queries: 200 },
-  ]
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  const modelPerformanceData = [
-    { name: "GPT-3", latency: 100, accuracy: 85, costEfficiency: 0.8 },
-    { name: "GPT-4", latency: 150, accuracy: 95, costEfficiency: 0.9 },
-    { name: "DALL-E", latency: 200, accuracy: 90, costEfficiency: 0.7 },
-  ]
+  // Fetch metrics from the backend API on component mount.
+  useEffect(() => {
+    async function fetchMetrics() {
+      try {
+        const response = await fetch(`${API_URL}/metrics/model_logs`, {
+          credentials: "include",
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch metrics: ${response.statusText}`);
+        }
+        const data: Metrics = await response.json();
+        setMetrics(data);
+      } catch (err: any) {
+        console.error("Error fetching metrics:", err);
+        setError(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchMetrics();
+  }, []);
 
-  const modelCostData = [
-    { name: "Jun 1", cost: 50 },
-    { name: "Jun 2", cost: 65 },
-    { name: "Jun 3", cost: 45 },
-    { name: "Jun 4", cost: 70 },
-    { name: "Jun 5", cost: 55 },
-  ]
+  if (loading) {
+    return (
+      <Layout>
+        <h1 className="text-3xl font-bold mb-6">Loading Metrics...</h1>
+      </Layout>
+    );
+  }
 
-  const performanceScoresData = [
-    { name: "GPT-3", math: 80, coding: 75, generalKnowledge: 85 },
-    { name: "GPT-4", math: 90, coding: 85, generalKnowledge: 95 },
-    { name: "DALL-E", math: 60, coding: 50, generalKnowledge: 70 },
-  ]
+  if (error) {
+    return (
+      <Layout>
+        <h1 className="text-3xl font-bold mb-6">
+          Error loading metrics: {error.message}
+        </h1>
+      </Layout>
+    );
+  }
 
-  const configurationImpactData = [
-    { setting: "Default", avgCost: 0.05, avgLatency: 100 },
-    { setting: "High Performance", avgCost: 0.08, avgLatency: 80 },
-    { setting: "Low Cost", avgCost: 0.03, avgLatency: 120 },
-  ]
+  // Destructure the metrics returned from the backend API.
+  const {
+    model_usage_distribution,
+    daily_model_cost,
+    model_performance,
+    performance_scores,
+    configuration_impact,
+  } = metrics!;
 
   return (
     <Layout>
       <h1 className="text-3xl font-bold mb-6">Model Logs</h1>
+
+      {/* Top row of charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
         <Card>
           <CardHeader>
             <CardTitle>Model Usage Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            <PieChart data={modelUsageData} />
+            <PieChart data={model_usage_distribution} />
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader>
-            <CardTitle>Model Performance</CardTitle>
+            <CardTitle>Model Performance (Accuracy)</CardTitle>
           </CardHeader>
           <CardContent>
-            <BarChart data={modelPerformanceData} xAxis="name" />
+            <BarChart data={model_performance} xAxis="name" yAxis="accuracy" />
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Daily Model Cost</CardTitle>
           </CardHeader>
           <CardContent>
-            <LineChart data={modelCostData} xAxis="name" yAxis="cost" />
+            <LineChart data={daily_model_cost} xAxis="name" yAxis="cost" />
           </CardContent>
         </Card>
       </div>
 
+      {/* Second row of charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card>
           <CardHeader>
             <CardTitle>Model Usage Frequency</CardTitle>
           </CardHeader>
           <CardContent>
-            <BarChart data={modelUsageData} xAxis="name" yAxis="queries" />
+            <BarChart data={model_usage_distribution} xAxis="name" yAxis="queries" />
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Cost Efficiency per Model</CardTitle>
           </CardHeader>
           <CardContent>
-            <BarChart data={modelPerformanceData} xAxis="name" yAxis="costEfficiency" />
+            <BarChart data={model_performance} xAxis="name" yAxis="costEfficiency" />
           </CardContent>
         </Card>
       </div>
 
+      {/* Performance Scores Table */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Performance Scores</CardTitle>
@@ -102,7 +157,7 @@ export default function ModelLogsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {performanceScoresData.map((score) => (
+              {performance_scores.map((score: any) => (
                 <TableRow key={score.name}>
                   <TableCell>{score.name}</TableCell>
                   <TableCell>{score.math}</TableCell>
@@ -115,6 +170,7 @@ export default function ModelLogsPage() {
         </CardContent>
       </Card>
 
+      {/* Configuration Impact Table */}
       <Card>
         <CardHeader>
           <CardTitle>Configuration Impact</CardTitle>
@@ -129,10 +185,10 @@ export default function ModelLogsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {configurationImpactData.map((config) => (
+              {configuration_impact.map((config: ConfigurationImpact) => (
                 <TableRow key={config.setting}>
                   <TableCell>{config.setting}</TableCell>
-                  <TableCell>${config.avgCost.toFixed(2)}</TableCell>
+                  <TableCell>${config.avgCost.toFixed(7)}</TableCell>
                   <TableCell>{config.avgLatency}</TableCell>
                 </TableRow>
               ))}
@@ -141,6 +197,5 @@ export default function ModelLogsPage() {
         </CardContent>
       </Card>
     </Layout>
-  )
+  );
 }
-

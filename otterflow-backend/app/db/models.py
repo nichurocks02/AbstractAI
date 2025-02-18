@@ -141,13 +141,12 @@ class UserBanditStats(Base):
 
     cumulative_reward = Column(Float, default=0.0)
     count = Column(Integer, default=0)
+    sum_rewards_squared = Column(Float, default=0.0)  # NEW FIELD
 
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Optionally enforce uniqueness: can't have duplicates
     __table_args__ = (
         UniqueConstraint("user_id", "model_name", "domain_label", name="user_model_domain_uc"),
     )
 
-    # If you want relationship:
     user = relationship("User")

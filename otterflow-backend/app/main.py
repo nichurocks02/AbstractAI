@@ -25,6 +25,12 @@ from app.routes.admin_query_logs import router as admin_query_logs
 from app.routes.admin_models import router as admin_models
 from app.routes.admin_emails import router as admin_emails
 from app.routes.admin_users import router as admin_users
+from app.routes.model_metrics import router as model_metrics
+from app.routes.query_log import router as query_logs_router
+from app.routes.rl_metrics import router as rl_metrics_router
+from app.routes.email import router as email_router
+from app.routes.frontend_email import router as frontend_email_router
+from app.routes.chat_completions import router as chat_completions_router
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -35,7 +41,11 @@ from app.machine_learning.ingestion import ingest_csv_to_db
 upload_dir = "uploaded_avatars"
 os.makedirs(upload_dir, exist_ok=True)
 
-app = FastAPI()
+app = FastAPI(
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
+    )
 
 # Mount the uploaded_avatars directory
 app.mount("/uploaded_avatars", StaticFiles(directory=upload_dir), name="uploaded_avatars")
@@ -43,7 +53,7 @@ app.mount("/uploaded_avatars", StaticFiles(directory=upload_dir), name="uploaded
 # CORS config
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # or restrict to your front-end domain
+    allow_origins=["http://localhost:3000"],   # or restrict to your front-end domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -114,8 +124,15 @@ app.include_router(admin_query_logs)
 app.include_router(admin_models)
 app.include_router(admin_emails)
 app.include_router(admin_users)
+app.include_router(model_metrics)
+app.include_router(query_logs_router)
+app.include_router(rl_metrics_router)
+app.include_router(email_router)
+app.include_router(frontend_email_router)
+app.include_router(chat_completions_router)
+
 # Root route
-@app.get("/")
+@app.get("/",include_in_schema=False)
 async def root():
     return {"message": "Welcome to AbstractAI Backend!"}
 

@@ -13,6 +13,7 @@ from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel, Field, validator
 from passlib.context import CryptContext
 import re
+import secrets
 import time
 router = APIRouter(
     prefix="/auth",
@@ -27,9 +28,39 @@ serializer = URLSafeSerializer(SESSION_SECRET_KEY, salt="session")
 SESSION_COOKIE_NAME = "session_id"
 SESSION_COOKIE_MAX_AGE = 60 * 60 * 8 * 1  # 8 hours
 
+
+oauth_states = {}
+
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+# ============ HELPER FUNCTIONS START ============
+
+def send_welcome_email(user: User):
+    """
+    Sends a fancy welcome email to the user.
+    """
+    welcome_subject = f"Welcome {user.name} to OtterFlow!"
+    welcome_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f4;">
+        <div style="max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; text-align: center;">
+          <h1 style="color: #2c7a7b;">Welcome {user.name} to OtterFlow!</h1>
+          <p style="font-size: 16px; color: #555;">Special greetings from the OtterFlow Team!</p>
+          <p style="font-size: 14px; color: #333;">
+            We’re thrilled to have you on board. At OtterFlow, we help you route smarter, save faster, and deliver better results.
+          </p>
+          <p style="font-size: 14px; color: #333;">
+            Dive in to explore our cutting-edge AI routing features and experience seamless performance.
+          </p>
+          <p style="font-weight: bold; color: #2c7a7b;">Enjoy your journey with OtterFlow!</p>
+          <p style="font-size: 14px; color: #555;">Warm regards,<br/>The OtterFlow Team</p>
+        </div>
+      </body>
+    </html>
+    """
+    # Pass html=True to send an HTML email.
+    send_email(user.email, welcome_subject, welcome_body, html=True)
 
 def get_current_user(
     request: Request,
@@ -65,8 +96,10 @@ def no_cache_response(content: dict, status_code: int = 200) -> JSONResponse:
     response.headers["Surrogate-Control"] = "no-store"
     return response
 
+# ============ HELPER FUNCTIONS END ============
+
 # Signup endpoint
-@router.post("/signup")
+@router.post("/signup",include_in_schema=False)
 async def signup(request: Request, response: Response, db: Session = Depends(get_db)):
     data = await request.json()
     email = data.get("email")
@@ -116,8 +149,7 @@ async def signup(request: Request, response: Response, db: Session = Depends(get
 
     return JSONResponse(content={"message": "User registered successfully. Please verify your email."}, status_code=201)
 
-# Verify email endpoint
-@router.post("/verify-email")
+@router.post("/verify-email",include_in_schema=False)
 async def verify_email(request: Request, db: Session = Depends(get_db)):
     data = await request.json()
     email = data.get("email")
@@ -130,7 +162,6 @@ async def verify_email(request: Request, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=400, detail="User not found.")
 
-    # Ensure user is using email/password auth
     if user.auth_method != 'email':
         raise HTTPException(status_code=400, detail="Email verification not required for this user.")
 
@@ -149,9 +180,12 @@ async def verify_email(request: Request, db: Session = Depends(get_db)):
     db.delete(otp)
     db.commit()
 
-    return JSONResponse(content={"message": "Email verified successfully."})
+    # Send a welcome email for first-time signup users.
+    send_welcome_email(user)
 
-@router.post("/login")
+    return JSONResponse(content={"message": "Email verified successfully. Welcome to OtterFlow!"})
+
+@router.post("/login",include_in_schema=False)
 async def login(request: Request, db: Session = Depends(get_db)):
     try:
         data = await request.json()
@@ -202,7 +236,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
 
 
 # Forgot password endpoint
-@router.post("/forgot-password")
+@router.post("/forgot-password",include_in_schema=False)
 async def forgot_password(request: Request, db: Session = Depends(get_db)):
     data = await request.json()
     email = data.get("email")
@@ -238,7 +272,7 @@ async def forgot_password(request: Request, db: Session = Depends(get_db)):
     return JSONResponse(content={"message": "Password reset OTP sent to your email."})
 
 # Reset password endpoint
-@router.post("/reset-password")
+@router.post("/reset-password",include_in_schema=False)
 async def reset_password(request: Request, db: Session = Depends(get_db)):
     data = await request.json()
     email = data.get("email")
@@ -274,21 +308,24 @@ async def reset_password(request: Request, db: Session = Depends(get_db)):
     return JSONResponse(content={"message": "Password reset successfully."})
 
 
-# LinkedIn OAuth Initiation Endpoint
-@router.get("/login/linkedin")
-async def login_linkedin():
+@router.get("/get_linkedin_url",include_in_schema=False)
+def get_linkedin_url():
     """
-    Initiates the LinkedIn OAuth flow by redirecting the user to LinkedIn's authorization page.
+    Returns a JSON object with the LinkedIn OAuth URL using OpenID Connect scopes.
     """
     linkedin_client_id = os.getenv("LINKEDIN_CLIENT_ID")
     linkedin_redirect_uri = os.getenv("LINKEDIN_REDIRECT_URI")
-    linkedin_scope = "r_liteprofile r_emailaddress"  # Requesting basic profile and email
-    linkedin_state = secrets.token_urlsafe(16)  # Generate a secure random state
+    # For OpenID Connect, we request openid, profile, email
+    linkedin_scope = "openid profile email"
+    linkedin_state = secrets.token_urlsafe(16)
 
     if not linkedin_client_id or not linkedin_redirect_uri:
-        raise HTTPException(status_code=500, detail="LinkedIn OAuth credentials not configured.")
+        raise HTTPException(
+            status_code=500, 
+            detail="LinkedIn OAuth credentials (CLIENT_ID or REDIRECT_URI) are not set."
+        )
 
-    # Store the state with an expiry (e.g., 10 minutes)
+    # Store the state with a 10-minute expiry
     oauth_states[linkedin_state] = datetime.now(timezone.utc) + timedelta(minutes=10)
 
     authorization_url = (
@@ -297,14 +334,18 @@ async def login_linkedin():
         f"scope={linkedin_scope}&state={linkedin_state}"
     )
 
-    return RedirectResponse(url=authorization_url)
+    return JSONResponse(content={"url": authorization_url})
 
-# LinkedIn OAuth Callback Endpoint
-@router.get("/linkedin/callback")
-async def linkedin_callback(request: Request, response: Response, db: Session = Depends(get_db)):
+
+@router.get("/linkedin/callback",include_in_schema=False)
+def linkedin_callback(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db)
+):
     """
-    Handles the callback from LinkedIn after user authorization.
-    Exchanges authorization code for access token, retrieves user info, creates/retrieves user in DB, and sets session cookie.
+    Handles the callback from LinkedIn after user grants permission.
+    Uses the 'openid profile email' scopes and calls /v2/userinfo to retrieve user data.
     """
     code = request.query_params.get("code")
     state = request.query_params.get("state")
@@ -317,18 +358,20 @@ async def linkedin_callback(request: Request, response: Response, db: Session = 
     if not code or not state:
         raise HTTPException(status_code=400, detail="Authorization code and state are required.")
 
-    # Verify state parameter
+    # Validate and remove the stored state
     state_expiry = oauth_states.get(state)
     if not state_expiry or state_expiry < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Invalid or expired state parameter.")
-    
-    # Remove state to prevent reuse
     del oauth_states[state]
 
     linkedin_client_id = os.getenv("LINKEDIN_CLIENT_ID")
     linkedin_client_secret = os.getenv("LINKEDIN_CLIENT_SECRET")
     linkedin_redirect_uri = os.getenv("LINKEDIN_REDIRECT_URI")
 
+    if not all([linkedin_client_id, linkedin_client_secret, linkedin_redirect_uri]):
+        raise HTTPException(status_code=500, detail="Missing LinkedIn OAuth environment variables.")
+
+    # Exchange the code for an access token
     token_url = "https://www.linkedin.com/oauth/v2/accessToken"
     token_data = {
         "grant_type": "authorization_code",
@@ -337,94 +380,96 @@ async def linkedin_callback(request: Request, response: Response, db: Session = 
         "client_id": linkedin_client_id,
         "client_secret": linkedin_client_secret,
     }
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
     try:
-        # Exchange authorization code for access token
         token_response = requests.post(token_url, data=token_data, headers=headers)
         token_response.raise_for_status()
-        access_token = token_response.json().get("access_token")
-        expires_in = token_response.json().get("expires_in")
-
+        token_json = token_response.json()
+        access_token = token_json.get("access_token")
         if not access_token:
             raise HTTPException(status_code=400, detail="Access token not found in LinkedIn response.")
 
-        # Retrieve user profile information
-        profile_url = "https://api.linkedin.com/v2/me"
-        email_url = "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))"
-        profile_headers = {
-            "Authorization": f"Bearer {access_token}"
-        }
+        # For OpenID Connect, LinkedIn provides a userinfo endpoint:
+        userinfo_url = "https://api.linkedin.com/v2/userinfo"
+        auth_header = {"Authorization": f"Bearer {access_token}"}
 
-        profile_response = requests.get(profile_url, headers=profile_headers)
-        profile_response.raise_for_status()
-        profile_data = profile_response.json()
+        userinfo_resp = requests.get(userinfo_url, headers=auth_header)
+        userinfo_resp.raise_for_status()
+        userinfo_data = userinfo_resp.json()
+        # This data typically includes claims like sub, email, name, etc.
+        # The exact shape can vary. For example:
+        # {
+        #   "sub": "abcdef123456789",
+        #   "email": "someone@example.com",
+        #   "email_verified": true,
+        #   "name": "Alice Smith",
+        #   ...
+        # }
 
-        email_response = requests.get(email_url, headers=profile_headers)
-        email_response.raise_for_status()
-        email_data = email_response.json()
-
-        first_name = profile_data.get("localizedFirstName")
-        last_name = profile_data.get("localizedLastName")
-        full_name = f"{first_name} {last_name}"
-        email = email_data.get("elements", [{}])[0].get("handle~", {}).get("emailAddress")
+        email = userinfo_data.get("email")
+        name = userinfo_data.get("name")
+        # If your user data is shaped differently, adapt accordingly.
+        # e.g., userinfo_data.get("family_name"), userinfo_data.get("given_name"), etc.
 
         if not email:
-            raise HTTPException(status_code=400, detail="Email not found in LinkedIn profile.")
+            raise HTTPException(status_code=400, detail="Email not found in LinkedIn userinfo.")
 
-        # Check if user exists
+        # Create or retrieve user in your database
         user = db.query(User).filter(User.email == email).first()
-
+        is_new = False
         if not user:
-            # Create new user
+            # New user
             user = User(
                 email=email,
-                name=full_name,
+                name=name or email.split("@")[0],  # fallback if name is missing
                 auth_method='linkedin',
-                is_email_verified=True  # Assume LinkedIn email is verified
+                is_email_verified=True
             )
             db.add(user)
             db.commit()
             db.refresh(user)
+            is_new = True
 
-            # Initialize wallet with $5 free credit
-            wallet = Wallet(user_id=user.id, balance=DEFAULT_WALLET_BALANCE, email=user.email, name=user.name)
+            # Initialize wallet (if needed in your app)
+            wallet = Wallet(
+                user_id=user.id,
+                balance=DEFAULT_WALLET_BALANCE,
+            )
             db.add(wallet)
             db.commit()
             db.refresh(wallet)
 
-        # Create a signed session token
+        if is_new:
+            send_welcome_email(user)
+
+        # Create a session token
         session_token = serializer.dumps({
             "user_id": user.id,
             "exp": (datetime.now(timezone.utc) + timedelta(seconds=SESSION_COOKIE_MAX_AGE)).timestamp()
         })
 
-        # Create RedirectResponse to frontend dashboard
-        frontend_dashboard_url = os.getenv("FRONTEND_DASHBOARD_URL", "http://localhost:3000/dashboard")
+        frontend_dashboard_url = os.getenv("FRONTEND_DASHBOARD_URL", "https://localhost/dashboard")
         redirect_response = RedirectResponse(url=frontend_dashboard_url)
 
-        # Set the session cookie
+        # Set the session cookie with the token
         redirect_response.set_cookie(
             key=SESSION_COOKIE_NAME,
             value=session_token,
             httponly=True,
-            secure=True,           # Set to True in production with HTTPS
+            secure=True,  # True for HTTPS in production
             samesite="none",
             max_age=SESSION_COOKIE_MAX_AGE,
-            path="/",
+            path="/"
         )
-
         return redirect_response
 
     except requests.RequestException as e:
         raise HTTPException(status_code=500, detail=f"LinkedIn OAuth error: {str(e)}")
 
-
 # Google login endpoints already implemented
 
-@router.get("/login/google")
+@router.get("/login/google",include_in_schema=False)
 async def login_google():
     google_client_id = os.getenv("GOOGLE_CLIENT_ID")
     google_redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
@@ -432,7 +477,7 @@ async def login_google():
         "url": f"https://accounts.google.com/o/oauth2/auth?prompt=login&response_type=code&client_id={google_client_id}&redirect_uri={google_redirect_uri}&scope=openid%20profile%20email&access_type=offline"
     }
 
-@router.get("/google")
+@router.get("/google",include_in_schema=False)
 async def auth_google(code: str, request: Request, response: Response, db: Session = Depends(get_db)):
     google_client_id = os.getenv("GOOGLE_CLIENT_ID")
     google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -463,7 +508,7 @@ async def auth_google(code: str, request: Request, response: Response, db: Sessi
 
         # Check if the user exists, otherwise create one and assign free credit
         user = db.query(User).filter_by(email=user_info["email"]).first()
-
+        is_new=False
         if not user:
             # Create a new user
             user = User(
@@ -475,12 +520,16 @@ async def auth_google(code: str, request: Request, response: Response, db: Sessi
             db.add(user)
             db.commit()
             db.refresh(user)
+            is_new=True
 
             # Initialize wallet with $5 free credit
             wallet = Wallet(user_id=user.id, balance=DEFAULT_WALLET_BALANCE)
             db.add(wallet)
             db.commit()
             db.refresh(wallet)
+
+        if is_new:
+            send_welcome_email(user)
 
         # Create a signed session token
         session_token = serializer.dumps({
@@ -489,7 +538,7 @@ async def auth_google(code: str, request: Request, response: Response, db: Sessi
         })
 
         # Create RedirectResponse to frontend dashboard
-        frontend_dashboard_url = os.getenv("FRONTEND_DASHBOARD_URL", "http://localhost:3000/dashboard")
+        frontend_dashboard_url = os.getenv("FRONTEND_DASHBOARD_URL", "https://localhost/dashboard")
         redirect_response = RedirectResponse(url=frontend_dashboard_url)
 
         # Set the session cookie
@@ -509,7 +558,7 @@ async def auth_google(code: str, request: Request, response: Response, db: Sessi
     except requests.RequestException as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
     
-@router.get("/user")
+@router.get("/user",include_in_schema=False)
 async def get_current_user_route(
     user: User = Depends(get_current_user)  # Re-use the dependency
 ):
@@ -532,7 +581,7 @@ async def get_current_user_route(
     response.headers["Expires"] = "0"
     return response
 
-@router.get("/logout")
+@router.get("/logout",include_in_schema=False)
 async def logout(response: Response):
     response = JSONResponse(content={"message": "Successfully logged out."})
     # Delete with matching domain, samesite, secure, and path
@@ -551,14 +600,14 @@ async def logout(response: Response):
     return response
 
 
-@router.get("/default-avatar")
+@router.get("/default-avatar",include_in_schema=False)
 async def default_avatar(name: str):
     svg = generate_initials_avatar(name)
     return Response(content=svg, media_type="image/svg+xml")
 
 class UpdateProfile(BaseModel):
     name: str
-@router.post("/upload-avatar")
+@router.post("/upload-avatar",include_in_schema=False)
 async def upload_avatar(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -589,7 +638,7 @@ async def upload_avatar(
     return {"message": "Avatar uploaded successfully", "avatar_url": avatar_url}
 
 
-@router.post("/update-profile")
+@router.post("/update-profile",include_in_schema=False)
 async def update_profile(
     profile: UpdateProfile,
     db: Session = Depends(get_db),

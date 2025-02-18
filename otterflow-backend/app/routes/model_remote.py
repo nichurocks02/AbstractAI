@@ -11,7 +11,7 @@ from app.routes.auth import get_current_user, no_cache_response  # Import depend
 
 router = APIRouter(prefix="/models", tags=["Models"])
 
-@router.get("/get_models")
+@router.get("/get_models",include_in_schema=False)
 def get_models(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)  # Use centralized dependency
@@ -28,6 +28,7 @@ def get_models(
             "description": f"License: {getattr(m, 'license', 'N/A')}, Window: {getattr(m, 'window', 'N/A')}",
             "temperature": getattr(m, 'temperature', 0.5),
             "top_p": getattr(m, 'top_p', 1.0),
+            "licenseType": getattr(m, 'license', 'N/A')
         }
         for m in db_models
     ]
@@ -57,7 +58,7 @@ def model_catalog(
 
     return no_cache_response({"models": models})
 
-@router.post("/update-all")
+@router.post("/update-all",include_in_schema=False)
 def update_all_models(
     settings: dict,
     db: Session = Depends(get_db),

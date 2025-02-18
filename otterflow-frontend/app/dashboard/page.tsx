@@ -3,9 +3,9 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Button } from '@/components/ui/button'
 import { LineChart, PieChart } from '@/components/ui/chart'
-import { Bell, ArrowRight } from 'lucide-react'
+import { Bell, ArrowRight, Gamepad2, BarChart } from 'lucide-react'
 import Layout from '@/components/Layout'
 import useAuth from '../../hooks/useAuth'
 import { motion } from "framer-motion"
@@ -21,17 +21,14 @@ export default function Dashboard() {
   // A palette of colors for the pie chart slices
   const pieColors = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40"]
 
-  // 1) Always declare hooks at the top
-  //    Conditionally run logic inside them, but don't skip the hook entirely.
-
-  // This effect handles redirect if user is not authenticated
+  // Redirect if user is not authenticated
   useEffect(() => {
     if (!loading && !user) {
       router.replace('/auth')
     }
   }, [loading, user, router])
 
-  // This effect handles fetching metrics once user is authenticated
+  // Fetch metrics once user is authenticated
   useEffect(() => {
     async function fetchMetrics() {
       try {
@@ -55,9 +52,7 @@ export default function Dashboard() {
     }
   }, [loading, user])
 
-  // 2) Now handle rendering
-
-  // If still loading user state, show a quick message
+  // If still loading user state, show a message
   if (loading) {
     return (
       <Layout>
@@ -66,8 +61,7 @@ export default function Dashboard() {
     )
   }
 
-  // If user is null, we likely triggered router.replace('/auth')
-  // so optionally show a message (the user is probably already being redirected)
+  // If user is null, show a message (user is likely being redirected)
   if (!user) {
     return (
       <Layout>
@@ -94,7 +88,7 @@ export default function Dashboard() {
     )
   }
 
-  // Once we have metrics, display the content
+  // Map model usage distribution with colors for the pie chart
   const modelUsageDataWithColors = metrics.model_usage_distribution.map(
     (item: any, index: number) => ({
       ...item,
@@ -102,7 +96,7 @@ export default function Dashboard() {
     })
   )
 
-  // Simple placeholder for empty chart data
+  // Placeholder component for empty chart data
   const ChartPlaceholder = ({ message }: { message: string }) => (
     <div className="flex flex-col items-center justify-center h-48 text-gray-500">
       <motion.div
@@ -118,8 +112,50 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+      {/* Header with Dashboard title and navigation icons */}
+      <div className="flex items-center justify-between mb-6 relative">
+        {/* Left group: Dashboard title with animated arrow */}
+        <div className="relative flex items-center">
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          {/* Animated arrow: starts at the end of the title, travels toward the Gamepad2 */}
+          <motion.div
+            className="absolute text-2xl"
+            style={{ left: 'calc(100% - 0.5rem)', top: '50%', transform: 'translateY(-50%)' }}
+            // Feel free to adjust the x offset below so the arrow lands exactly on the Gamepad2 icon
+            initial={{ x: 0 }}
+            animate={{ x: [0, 950, 950] }}
+            transition={{
+              duration: 2,
+              times: [0, 0.4, 1],
+              repeat: Infinity,
+              repeatDelay: 2,
+              ease: "easeInOut",
+            }}
+          >
+            → 
+          </motion.div>
+        </div>
 
+        {/* Right group: small navigation icons */}
+        <div className="flex space-x-4">
+          <button
+            onClick={() => router.push('/playground')}
+            className="hover:opacity-75 mt-4"
+            title="Playground"
+          >
+            <Gamepad2 className="h-9 w-9 text-teal-600" />
+          </button>
+          <button
+            onClick={() => router.push('/metrics')}
+            className="hover:opacity-75 mt-4"
+            title="Metrics"
+          >
+            <BarChart className="h-9 w-9 text-indigo-600" />
+          </button>
+        </div>
+      </div>
+
+      {/* Top Metrics Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {/* Total API Calls Card */}
         <Card>
@@ -134,7 +170,7 @@ export default function Dashboard() {
 
         {/* Total Cost Card */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y=0 pb-2">
             <CardTitle className="text-sm font-medium">Total Cost</CardTitle>
           </CardHeader>
           <CardContent>
@@ -170,6 +206,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Charts Section */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7 mt-6">
         {/* API Usage Over Time Chart */}
         <Card className="col-span-4">
@@ -200,6 +237,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Activity & Notifications Section */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7 mt-6">
         {/* Recent Activity Card */}
         <Card className="col-span-4">
@@ -241,6 +279,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Bottom Navigation Buttons */}
       <div className="mt-6 flex justify-between">
         <Button
           variant="outline"
@@ -248,7 +287,7 @@ export default function Dashboard() {
           onClick={() => router.push('/api-access')}
         >
           View API Keys
-          <ArrowRight className="ml-2 h-4 w-4" />
+          <ArrowRight className="ml-2 h-9 w-9" />
         </Button>
         <Button
           variant="outline"
@@ -256,7 +295,7 @@ export default function Dashboard() {
           onClick={() => router.push('/model-settings')}
         >
           Configure Models
-          <ArrowRight className="ml-2 h-4 w-4" />
+          <ArrowRight className="ml-2 h-9 w-9" />
         </Button>
       </div>
     </Layout>

@@ -1,64 +1,78 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { BarChart } from "@/components/ui/chart"
-import { PieChart } from "@/components/ui/chart" // Import PieChart
-import Layout from "@/components/Layout"
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { BarChart, PieChart } from "@/components/ui/chart";
+import Layout from "@/components/Layout";
 
-// Mock data for demonstration
-const mockQueryLogs = [
-  {
-    id: 1,
-    timestamp: "2023-06-01 10:00:00",
-    user: "user1@example.com",
-    query: "What is the weather like?",
-    model: "GPT-3",
-    tokens: 50,
-    cost: 0.05,
-  },
-  {
-    id: 2,
-    timestamp: "2023-06-01 11:30:00",
-    user: "user2@example.com",
-    query: "Translate 'hello' to French",
-    model: "GPT-4",
-    tokens: 30,
-    cost: 0.03,
-  },
-  {
-    id: 3,
-    timestamp: "2023-06-02 09:15:00",
-    user: "user1@example.com",
-    query: "Write a poem about spring",
-    model: "GPT-3",
-    tokens: 100,
-    cost: 0.1,
-  },
-  // Add more mock data as needed
-]
-
+// Change API_URL if needed (or load it from an environment variable)
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 export default function QueryLogsPage() {
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Mock data for charts
-  const dailyQueryData = [
-    { name: "Jun 1", queries: 50 },
-    { name: "Jun 2", queries: 65 },
-    { name: "Jun 3", queries: 45 },
-    { name: "Jun 4", queries: 70 },
-    { name: "Jun 5", queries: 55 },
-  ]
+  const fetchData = async () => {
+    try {
+      let url = `${API_URL}/query_log/logs`;
+      const params = [];
+      if (startDate) params.push(`start_date=${startDate}`);
+      if (endDate) params.push(`end_date=${endDate}`);
+      if (params.length > 0) url += "?" + params.join("&");
 
-  const modelUsageData = [
-    { name: "GPT-3", value: 60 },
-    { name: "GPT-4", value: 30 },
-    { name: "DALL-E", value: 10 },
-  ]
+      const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch query logs: ${response.statusText}`);
+      }
+      const json = await response.json();
+      setData(json);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch data when the component mounts
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const applyFilter = () => {
+    setLoading(true);
+    fetchData();
+  };
+
+  if (loading) {
+    return (
+      <Layout>
+        <h1 className="text-3xl font-bold mb-6">Loading Query Logs...</h1>
+      </Layout>
+    );
+  }
+
+  if (error) {
+    return (
+      <Layout>
+        <h1 className="text-3xl font-bold mb-6">Error: {error.message}</h1>
+      </Layout>
+    );
+  }
+
+  // Destructure the data from the backend response.
+  const { logs, daily_query_data, model_usage_data } = data;
 
   return (
     <Layout>
@@ -74,8 +88,13 @@ export default function QueryLogsPage() {
             onChange={(e) => setStartDate(e.target.value)}
             placeholder="Start Date"
           />
-          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} placeholder="End Date" />
-          <Button>Apply Filter</Button>
+          <Input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            placeholder="End Date"
+          />
+          <Button onClick={applyFilter}>Apply Filter</Button>
         </CardContent>
       </Card>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -84,7 +103,7 @@ export default function QueryLogsPage() {
             <CardTitle>Daily Queries</CardTitle>
           </CardHeader>
           <CardContent>
-            <BarChart data={dailyQueryData} xAxis="name" yAxis="queries" />
+            <BarChart data={daily_query_data} xAxis="name" yAxis="queries" />
           </CardContent>
         </Card>
         <Card>
@@ -92,7 +111,7 @@ export default function QueryLogsPage() {
             <CardTitle>Model Usage</CardTitle>
           </CardHeader>
           <CardContent>
-            <PieChart data={modelUsageData} />
+            <PieChart data={model_usage_data} />
           </CardContent>
         </Card>
       </div>
@@ -113,14 +132,15 @@ export default function QueryLogsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockQueryLogs.map((log) => (
+              {logs.map((log) => (
                 <TableRow key={log.id}>
                   <TableCell>{log.timestamp}</TableCell>
                   <TableCell>{log.user}</TableCell>
                   <TableCell>{log.query}</TableCell>
+                  <TableCell>{log.llm_response}</TableCell>
                   <TableCell>{log.model}</TableCell>
                   <TableCell>{log.tokens}</TableCell>
-                  <TableCell>${log.cost.toFixed(2)}</TableCell>
+                  <TableCell>${log.cost.toFixed(7)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -128,6 +148,5 @@ export default function QueryLogsPage() {
         </CardContent>
       </Card>
     </Layout>
-  )
+  );
 }
-

@@ -5,8 +5,6 @@ services:
     build:
       context: .
       dockerfile: otterflow-backend/Dockerfile.backend
-    ports:
-      - "8000:8000"
     volumes:
       - ./otterflow-backend:/app
       # Not mounting certs here since backend runs HTTP
@@ -20,8 +18,6 @@ services:
     build:
       context: .
       dockerfile: otterflow-frontend/Dockerfile.frontend
-    ports:
-      - "3000:3000"
     volumes:
       - ./otterflow-frontend:/app
     env_file:

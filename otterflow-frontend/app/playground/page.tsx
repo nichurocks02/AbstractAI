@@ -8,13 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import Layout from "@/components/Layout";
+import ReactMarkdown from "react-markdown";
 
 // --------------------- Types ---------------------
 type RoleType = "user" | "system" | "intermediate";
 
 interface StepItem {
-  label: string; // e.g. "User Preferences"
-  metrics?: any; // Additional details (if any)
+  label: string;
+  metrics?: any;
 }
 
 interface Message {
@@ -84,7 +85,6 @@ function NeuralProcessingHeader({ done }: { done: boolean }) {
   );
 }
 
-// --------------------- Main Component ---------------------
 export default function Playground() {
   // Chat messages
   const [messages, setMessages] = useState<Message[]>([
@@ -98,6 +98,11 @@ export default function Playground() {
   const [error, setError] = useState<string | null>(null);
   const [isQueryRunning, setIsQueryRunning] = useState(false);
   const [modelUsed, setModelUsed] = useState<string | null>(null);
+
+  // --------------------- NEW: Balance State + Modal Toggle ---------------------
+  const [walletBalance, setWalletBalance] = useState<number>(0);      // store the user’s balance in cents
+  const [showBalanceModal, setShowBalanceModal] = useState(false);    // controls if we show “insufficient balance” modal
+  const [balanceRequestReason, setBalanceRequestReason] = useState(""); // holds user's reason for requesting more balance
 
   // Preferences & constraints
   const [preferences, setPreferences] = useState({
@@ -136,7 +141,27 @@ export default function Playground() {
 
   const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 
-  // --------------------- Fetch Initial Data ---------------------
+  // --------------------- Fetch Balance (NEW) ---------------------
+  useEffect(() => {
+    async function fetchBalance() {
+      try {
+        const res = await fetch(`${baseUrl}/wallet/balance`, { credentials: "include" });
+        if (!res.ok) throw new Error("Failed to fetch wallet balance");
+        const data = await res.json();
+        setWalletBalance(data.wallet_balance);
+        // If balance < 100, show the insufficient balance modal
+        console.log(data.wallet_balance)
+        if (data.wallet_balance < 5) {
+          setShowBalanceModal(true);
+        }
+      } catch (err) {
+        console.error("Balance fetch error:", err);
+      }
+    }
+    fetchBalance();
+  }, [baseUrl]);
+
+  // --------------------- Fetch Initial Ranges and Catalog ---------------------
   useEffect(() => {
     async function fetchRanges() {
       try {
@@ -175,8 +200,14 @@ export default function Playground() {
     fetchCatalog();
   }, [baseUrl]);
 
-  // --------------------- SSE handleSend ---------------------
+  // --------------------- SSE handleSend + Check Balance ---------------------
   const handleSend = async () => {
+    // If the user’s balance is below 100, block sending
+    if (walletBalance < 5) {
+      setShowBalanceModal(true);
+      return;
+    }
+
     if (!input.trim()) return;
 
     // Validate constraints (auto) or manual selection
@@ -207,10 +238,7 @@ export default function Playground() {
 
     // 1) Add user message
     const userId = `user-${Date.now()}`;
-    setMessages((prev) => [
-      ...prev,
-      { id: userId, role: "user", content: input },
-    ]);
+    setMessages((prev) => [...prev, { id: userId, role: "user", content: input }]);
 
     // 2) Insert intermediate bubble
     const intermediateId = `intermediate-${Date.now()}`;
@@ -231,7 +259,7 @@ export default function Playground() {
     if (modelChoiceMode === "auto") {
       const adjustedConstraints = {
         ...constraints,
-        cost_max: constraints.cost_max !== null ? constraints.cost_max * 3 : null,
+        cost_max: constraints.cost_max !== null ? constraints.cost_max : null,
       };
       user_input = {
         cost_priority: preferences.costPriority,
@@ -240,8 +268,6 @@ export default function Playground() {
         cost_max: adjustedConstraints.cost_max,
         perf_min: adjustedConstraints.perf_min,
         lat_max: adjustedConstraints.lat_max,
-        // withCache is effectively not used in your backend if you remove caching,
-        // but we keep it for demonstration
         with_cache: withCache,
       };
     } else {
@@ -264,7 +290,25 @@ export default function Playground() {
         eventSource.close();
         return;
       }
-
+      // Check if the event contains RL status and domain info.
+      if (data.rl_status && data.domain) {
+        // Append an intermediate step indicating RL status and detected domain.
+        const newStep: StepItem = {
+          label: `RL Status: ${data.rl_status} | Domain: ${data.domain}`,
+        };
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg.role === "intermediate") {
+              const oldSteps = msg.steps || [];
+              return { ...msg, steps: [...oldSteps, newStep] };
+            }
+            return msg;
+          })
+        );
+        // We don't need to add a new message here; just update intermediate steps.
+        return;
+      }
+      
       if (data.step) {
         const newStep: StepItem = {
           label: data.step,
@@ -301,6 +345,11 @@ export default function Playground() {
         setModelUsed(data.model_used || null);
         setIsQueryRunning(false);
         eventSource.close();
+
+        // Optional: After usage, you might want to re-check the user's balance
+        // to see if it dropped below 5. But that depends on your logic and cost calculations.
+        // For example:
+        // fetchBalanceAgainIfNeeded();
       }
     };
 
@@ -328,7 +377,6 @@ export default function Playground() {
 
   // Here we just keep the toggle state, but we DISABLE it in the UI
   const handleCacheToggle = () => {
-    // Show a quick console message or an alert if needed
     console.log("Caching is available only for enterprise users.");
   };
 
@@ -351,6 +399,27 @@ export default function Playground() {
     setIsQueryRunning(false);
   };
 
+  // --------------------- NEW: Handle sending admin request for more balance ---------------------
+  const handleBalanceRequestSubmit = async () => {
+    if (!balanceRequestReason.trim()) return;
+
+    try {
+      const response = await fetch(`${baseUrl}/email/request_balance`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: balanceRequestReason }),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to send request to admin");
+      }
+      alert("Request sent to admin successfully!");
+      setShowBalanceModal(false);
+    } catch (error) {
+      alert("Error sending request: " + error.message);
+    }
+  };
+
   // --------------------- Render Chat Messages ---------------------
   function renderMessage(msg: Message) {
     if (msg.role === "user") {
@@ -363,7 +432,7 @@ export default function Playground() {
           className="mb-2 max-w-xl ml-auto text-right"
         >
           <div className="inline-block px-3 py-2 rounded-lg bg-blue-400 text-white">
-            {msg.content}
+            <ReactMarkdown>{msg.content}</ReactMarkdown>
           </div>
         </motion.div>
       );
@@ -377,7 +446,7 @@ export default function Playground() {
           className="mb-2 max-w-xl mr-auto text-left"
         >
           <div className="inline-block px-3 py-2 rounded-lg bg-gray-200 text-gray-800">
-            {msg.content}
+            <ReactMarkdown>{msg.content}</ReactMarkdown>
           </div>
           {msg.model && (
             <div className="text-xs text-gray-400 mt-1">Model: {msg.model}</div>
@@ -413,7 +482,9 @@ export default function Playground() {
             {!msg.isOpen ? (
               <div className="mt-2 space-y-1 text-sm text-gray-400">
                 {steps.length > 0 ? (
-                  steps.map((sItem, idx) => <div key={idx}>• {sItem.label}</div>)
+                  steps.map((sItem, idx) => (
+                    <div key={idx}>• {sItem.label}</div>
+                  ))
                 ) : (
                   <div className="italic">Awaiting intermediate updates...</div>
                 )}
@@ -422,11 +493,16 @@ export default function Playground() {
               <div className="mt-2 space-y-3 text-sm">
                 {steps.length > 0 ? (
                   steps.map((sItem, idx) => (
-                    <div key={idx} className="border border-gray-300 p-2 rounded bg-white text-gray-800">
-                      <div className="font-semibold text-teal-600 mb-1">{sItem.label}</div>
+                    <div
+                      key={idx}
+                      className="border border-gray-300 p-2 rounded bg-white text-gray-800"
+                    >
+                      <div className="font-semibold text-teal-600 mb-1">
+                        {sItem.label}
+                      </div>
                       {sItem.metrics && (
                         <pre className="text-xs whitespace-pre-wrap break-all">
-                          {JSON.stringify(sItem.metrics, null, 2)}
+                          <ReactMarkdown>{JSON.stringify(sItem.metrics, null, 2)}</ReactMarkdown>
                         </pre>
                       )}
                     </div>
@@ -442,7 +518,6 @@ export default function Playground() {
     }
   }
 
-  // --------------------- JSX Return ---------------------
   return (
     <Layout>
       {/* Header */}
@@ -456,7 +531,12 @@ export default function Playground() {
         </Button>
       </div>
 
-      <div className="flex h-[calc(95vh-4rem)] relative p-6 bg-gray-900 text-white">
+      {/* Main Container: If insufficient balance, blur the background */}
+      <div
+        className={`flex h-[calc(95vh-4rem)] relative p-6 bg-gray-900 text-white transition ${
+          showBalanceModal ? "filter blur-sm pointer-events-none" : ""
+        }`}
+      >
         {/* Left: Chat */}
         <div className="flex-1 flex flex-col mr-4">
           <Card className="flex-1 overflow-hidden flex flex-col bg-gray-800 bg-opacity-90 shadow-2xl rounded-lg">
@@ -487,15 +567,13 @@ export default function Playground() {
                   type="checkbox"
                   checked={withCache}
                   onChange={handleCacheToggle}
-                  disabled // <-- Make it disabled so user can't toggle
+                  disabled
                   className="mr-2 cursor-not-allowed"
                   style={{ opacity: 0.5 }}
                 />
                 <span className="text-gray-300 select-none" style={{ opacity: 0.5 }}>
                   Use Cache (Enterprise Only)
                 </span>
-
-                {/* A small "premium" notice animation, optional */}
                 <motion.span
                   animate={{ scale: [1, 1.2, 1] }}
                   transition={{ repeat: Infinity, duration: 2 }}
@@ -514,7 +592,7 @@ export default function Playground() {
             <h2 className="text-lg font-semibold text-teal-300">Model Preferences</h2>
             <div>
               <Label className="text-gray-200 mb-1">Model Selection Mode</Label>
-              <div className="space-x-2">
+              <div className="space-y-2">
                 <label className="inline-flex items-center space-x-1">
                   <input
                     type="radio"
@@ -524,7 +602,7 @@ export default function Playground() {
                   />
                   <span className="text-gray-100">Auto Model</span>
                 </label>
-                <label className="inline-flex items-center space-x-1 ml-3">
+                <label className="inline-flex items-center space-x-1">
                   <input
                     type="radio"
                     value="manual"
@@ -746,6 +824,56 @@ export default function Playground() {
               >
                 Close
               </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* NEW: Insufficient Balance Modal */}
+      <AnimatePresence>
+        {showBalanceModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white p-6 rounded shadow-lg w-full max-w-md mx-4 relative"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+            >
+              <h2 className="text-xl font-bold text-red-600 mb-4">Insufficient Balance</h2>
+              <p className="mb-4 text-gray-700">
+                Your balance is below the required minimum (5 cents). Please request more
+                balance or contact support.
+              </p>
+              <div className="mb-4">
+                <Label className="mb-1 font-semibold">Reason for Request</Label>
+                <textarea
+                  value={balanceRequestReason}
+                  onChange={(e) => setBalanceRequestReason(e.target.value)}
+                  className="w-full p-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  rows={4}
+                  placeholder="Briefly explain why you need more balance..."
+                />
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleBalanceRequestSubmit}
+                  className="bg-teal-600 hover:bg-teal-700 text-white mr-2"
+                >
+                  Send Request
+                </Button>
+                <Button
+                  onClick={() => setShowBalanceModal(false)}
+                  variant="outline"
+                  className="border-gray-400 text-gray-600"
+                >
+                  Close
+                </Button>
+              </div>
             </motion.div>
           </motion.div>
         )}

@@ -13,7 +13,7 @@ router = APIRouter(
     tags=["Wallet"]
 )
 
-@router.get("/balance")
+@router.get("/balance",include_in_schema=False)
 async def get_wallet_balance(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)  # Use centralized dependency
@@ -21,7 +21,7 @@ async def get_wallet_balance(
     wallet_balance = user.wallet.balance if user.wallet else 0
     return no_cache_response({"wallet_balance": wallet_balance})
 
-@router.post("/recharge")
+@router.post("/recharge",include_in_schema=False)
 async def recharge_wallet(
     amount: int,
     request: Request,  # Needed to access the request body

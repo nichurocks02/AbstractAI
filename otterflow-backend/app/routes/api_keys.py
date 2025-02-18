@@ -38,7 +38,7 @@ class APIKeyOut(BaseModel):
         orm_mode = True
         from_attributes = True
 
-@router.post("/generate_api_key")
+@router.post("/generate_api_key",include_in_schema=False)
 async def generate_api_key(
     request_body: APIKeyRequest,
     db: Session = Depends(get_db),
@@ -73,7 +73,7 @@ async def generate_api_key(
 
     return {"api_key": api_key_value, "status": "active", "wallet_balance": wallet.balance}
 
-@router.put("/{api_name}/status")
+@router.put("/{api_name}/status",include_in_schema=False)
 async def update_api_key_status(api_name: str, is_active: bool, db: Session = Depends(get_db),
     user: User = Depends(get_current_user)):
     
@@ -89,7 +89,7 @@ async def update_api_key_status(api_name: str, is_active: bool, db: Session = De
 
     return {"message": f"API key status updated to {'active' if is_active else 'inactive'}"}
 
-@router.delete("/{api_name}/delete")
+@router.delete("/{api_name}/delete",include_in_schema=False)
 async def delete_api_key(api_name: str, db: Session = Depends(get_db),
     user: User = Depends(get_current_user)):
     
@@ -102,7 +102,7 @@ async def delete_api_key(api_name: str, db: Session = Depends(get_db),
 
     return {"message": "API key deleted"}
 
-@router.get("/list")
+@router.get("/list",include_in_schema=False)
 async def list_api_keys(db: Session = Depends(get_db),
     user: User = Depends(get_current_user)):
     

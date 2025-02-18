@@ -25,7 +25,7 @@ def no_cache_response(content: dict, status_code: int = 200) -> JSONResponse:
     response.headers["Surrogate-Control"] = "no-store"
     return response
 
-@router.get("/metrics")
+@router.get("/metrics",include_in_schema=False)
 def get_admin_dashboard_metrics(
     db: Session = Depends(get_db), 
     admin: bool = Depends(get_current_admin)  # Ensure only admins can call this

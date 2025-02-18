@@ -71,7 +71,7 @@ TEMPLATES = {
     }
 }
 
-@router.get("/users", response_model=List[EmailStr])
+@router.get("/users", response_model=List[EmailStr],include_in_schema=False)
 def get_user_emails(
     db: Session = Depends(get_db),
     is_admin: bool = Depends(get_current_admin)
@@ -86,7 +86,7 @@ def get_user_emails(
     emails = [user.email for user in users]
     return emails
 
-@router.post("/send", response_model=EmailInDB, status_code=status.HTTP_201_CREATED)
+@router.post("/send", response_model=EmailInDB, status_code=status.HTTP_201_CREATED,include_in_schema=False)
 def send_email_notification(
     email_data: EmailCreate,
     db: Session = Depends(get_db),
@@ -135,7 +135,7 @@ def send_email_notification(
     
     return new_email
 
-@router.get("/list", response_model=List[EmailResponse])
+@router.get("/list", response_model=List[EmailResponse],include_in_schema=False)
 def get_recent_emails(
     db: Session = Depends(get_db),
     is_admin: bool = Depends(get_current_admin)

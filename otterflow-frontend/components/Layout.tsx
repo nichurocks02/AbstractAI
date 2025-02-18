@@ -12,13 +12,13 @@ import 'react-toastify/dist/ReactToastify.css'
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, link: '/dashboard' },
-  { id: 'api', label: 'API Access', icon: Key, link: '/api-access' },
   { id: 'playground', label: 'Playground', icon: Gamepad2, link: '/playground' },
+  {id: "metrics",label: "Metrics",icon: BarChart,link: "/metrics",tooltip: "View detailed metrics and analytics"},
   { id: 'model-settings', label: 'Model Settings', icon: Cog, link: '/model-settings' },
+  { id: 'api', label: 'API Access', icon: Key, link: '/api-access' },
   { id: 'settings', label: 'User Settings', icon: Settings, link: '/user-settings' },
   { id: 'wallet', label: 'Wallet', icon: Wallet, link: '/wallet' },
-  {id: "metrics",label: "Metrics",icon: BarChart,link: "/metrics",tooltip: "View detailed metrics and analytics",
-  },
+  
   { id: 'store', label: 'Otter Store', icon: Store, link: '/store' },
 
 ]

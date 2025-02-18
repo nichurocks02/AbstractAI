@@ -20,9 +20,12 @@ COPY .env /app/
 EXPOSE 8000
 
 # Set environment variables for FastAPI (Optional, if you have any)
-ENV GOOGLE_CLIENT_ID="915597781700-pbe7iebq0r0iu1ie3etpj8s7hh5mqvo4.apps.googleusercontent.com"
-ENV GOOGLE_CLIENT_SECRET="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"
-ENV GOOGLE_REDIRECT_URI = "http://localhost:8000/auth/google"
+ENV GOOGLE_CLIENT_ID="359476995254-bf8k1dqr1nv651pha8ddks9plut83jlm.apps.googleusercontent.com"
+ENV GOOGLE_CLIENT_SECRET="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"
+ENV GOOGLE_REDIRECT_URI = "https://localhost/api/auth/google"
+ENV LINKEDIN_CLIENT_ID = "86cqts5mxkp0vm"
+ENV LINKEDIN_CLIENT_SECRET = "WPL_AP1.iEmCtKnHcGGA7Sd7.NJj83g=="
+ENV LINKEDIN_REDIRECT_URI = "https://localhost/api/auth/linkedin/callback"
 ENV STRIPE_SECRET_KEY = "sk_test_51Pvd2003R2gGtdrr5PktsuA9RrQjHSt06QScx0nV6eItGeSEsf2MHA910fNA4rp1MnArJkr3CwWGS5hkghdInpHo00d9YGV3FK"
 ENV POSTGRES_DB=abstractai
 ENV POSTGRES_USER=abstract_user_admin
