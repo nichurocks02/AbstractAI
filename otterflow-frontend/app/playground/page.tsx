@@ -416,9 +416,10 @@ export default function Playground() {
       alert("Request sent to admin successfully!");
       setShowBalanceModal(false);
     } catch (error) {
-      alert("Error sending request: " + error.message);
-    }
-  };
+      const errMsg = error instanceof Error ? error.message : "Unknown error"; // ✅ Fixed: Explicitly cast error
+    alert("Error sending request: " + errMsg);
+  }
+};
 
   // --------------------- Render Chat Messages ---------------------
   function renderMessage(msg: Message) {
@@ -686,7 +687,7 @@ export default function Playground() {
                   <Label className="font-semibold text-teal-300">Constraints</Label>
                   <div>
                     <Label htmlFor="costMax" className="text-gray-200">
-                      Max Cost (for 1M tokens)
+                      Max Cost (for 3M tokens)
                     </Label>
                     <Input
                       id="costMax"

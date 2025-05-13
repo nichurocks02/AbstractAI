@@ -16,13 +16,14 @@ import { BarChart, PieChart } from "@/components/ui/chart";
 import Layout from "@/components/Layout";
 
 // Change API_URL if needed (or load it from an environment variable)
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
 export default function QueryLogsPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<Error | null>(null); // ✅ Explicitly typed error
 
   const fetchData = async () => {
     try {
@@ -39,7 +40,7 @@ export default function QueryLogsPage() {
       const json = await response.json();
       setData(json);
     } catch (err) {
-      setError(err);
+      setError(err as Error); // ✅ Fixed: Explicitly cast err to Error
     } finally {
       setLoading(false);
     }
@@ -132,7 +133,7 @@ export default function QueryLogsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {logs.map((log) => (
+              {logs.map((log: any) => (
                 <TableRow key={log.id}>
                   <TableCell>{log.timestamp}</TableCell>
                   <TableCell>{log.user}</TableCell>

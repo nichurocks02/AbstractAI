@@ -35,7 +35,7 @@ def get_models(
 
     return no_cache_response({"models": models})
 
-@router.get("/model_catalog")
+@router.get("/model_catalog", include_in_schema=False)
 def model_catalog(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)  # Use centralized dependency

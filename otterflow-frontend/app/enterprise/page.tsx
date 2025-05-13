@@ -275,7 +275,7 @@ export default function EnterprisePage() {
           </motion.div>
         </motion.section>
 
-        <motion.section className="max-w-4xl mx-auto" initial="hidden" animate="visible" variants={containerVariants}>
+        <motion.section id="get-in-touch" className="max-w-4xl mx-auto" initial="hidden" animate="visible" variants={containerVariants}>
           <Card className="bg-white/10 backdrop-blur-md border-teal-500">
             <CardHeader>
               <CardTitle className="text-2xl">Get in Touch</CardTitle>

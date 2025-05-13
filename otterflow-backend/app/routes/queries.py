@@ -7,7 +7,7 @@ import time
 import logging
 import json
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from transformers import GPT2Tokenizer
 
@@ -27,7 +27,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/query", tags=["Queries"])
+router = APIRouter(prefix="/query", tags=["Queries"], include_in_schema=False)
 SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "your-secret-key")
 SESSION_COOKIE_NAME = "session_id"
 serializer = URLSafeSerializer(SESSION_SECRET_KEY, salt="session")
@@ -42,7 +42,8 @@ def get_current_user_from_cookie(request: Request, db: Session):
         user_id = session_data.get("user_id")
     except BadSignature:
         raise HTTPException(status_code=401, detail="Invalid session")
-    user = db.query(User).get(user_id)
+    # Eager load the wallet relationship
+    user = db.query(User).options(joinedload(User.wallet)).get(user_id)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
@@ -218,6 +219,16 @@ async def handle_user_query_stream(request: Request, db: Session = Depends(get_d
                         "model_name": model_name
                     }
                 })
+                # LOG the successful usage to bandit stats:
+                bandit_manager.update_reward(
+                    db=db,
+                    user_id=user.id,
+                    model_name=const_model_name,
+                    domain_label=current_domain,
+                    reward=1.0
+                )
+                logger.info(f"User {user.id} used model {const_model_name} successfully => +1.0 reward")
+
                 _sync_log_query(
                     user_id=user.id,
                     user_query=user_query,
@@ -330,6 +341,17 @@ async def handle_user_query_stream(request: Request, db: Session = Depends(get_d
                         "model_name": const_model_name
                     }
                 })
+
+                # LOG the successful usage to bandit stats:
+                bandit_manager.update_reward(
+                    db=db,
+                    user_id=user.id,
+                    model_name=const_model_name,
+                    domain_label=current_domain,
+                    reward=1.0
+                )
+                logger.info(f"User {user.id} used model {const_model_name} successfully => +1.0 reward")
+
                 _sync_log_query(
                     user_id=user.id,
                     user_query=user_query,

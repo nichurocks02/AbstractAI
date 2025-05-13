@@ -38,20 +38,16 @@ export default function APIAccess() {
           credentials: 'include',
         })
         if (!res.ok) {
-          // If /auth/user is not found (404) or unauthorized (401),
-          // the user is not authenticated
           throw new Error('Not authenticated')
         }
         const data = await res.json()
         setUser(data)
       } catch (error) {
-        // Redirect to /auth or show a message if you prefer
         router.replace('/auth')
       } finally {
         setLoadingUser(false)
       }
     }
-
     fetchUser()
   }, [router])
 
@@ -69,9 +65,7 @@ export default function APIAccess() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api-key/list`, {
         credentials: 'include',
       })
-
       if (response.status === 404) {
-        // No API keys found; treat as empty
         setApiKeys([])
       } else if (response.ok) {
         const data = await response.json()
@@ -93,7 +87,6 @@ export default function APIAccess() {
       toast.error('Please enter a name for the API key.')
       return
     }
-
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api-key/generate_api_key`, {
         method: 'POST',
@@ -102,7 +95,6 @@ export default function APIAccess() {
         body: JSON.stringify({ api_name: newApiName }),
       })
       if (response.ok) {
-        const data = await response.json()
         toast.success(`API Key "${newApiName}" created successfully!`)
         loadApiKeys()
         setNewApiName('')
@@ -116,7 +108,6 @@ export default function APIAccess() {
     }
   }
 
-  // Delete the key permanently
   const handleDeleteKey = async (apiName: string) => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api-key/${apiName}/delete`, {
@@ -136,17 +127,21 @@ export default function APIAccess() {
     }
   }
 
-  // 4) Handle loading or unauthenticated states
   if (loadingUser) {
-    return <Layout><p>Loading user data...</p></Layout>
+    return (
+      <Layout>
+        <p>Loading user data...</p>
+      </Layout>
+    )
   }
-  // If user is null, we likely are already redirecting in the fetchUser catch block
-  // but let's handle if user is forcibly set to null for any reason
   if (!user) {
-    return <Layout><p>Redirecting to Login...</p></Layout>
+    return (
+      <Layout>
+        <p>Redirecting to Login...</p>
+      </Layout>
+    )
   }
 
-  // 5) If we got here, user is authenticated
   return (
     <Layout>
       <h1 className="text-3xl font-bold mb-6">API Access</h1>
@@ -208,11 +203,23 @@ export default function APIAccess() {
         </CardContent>
       </Card>
 
+      {/* Integration Guide */}
       <Card>
         <CardHeader>
           <CardTitle>Integration Guide</CardTitle>
         </CardHeader>
         <CardContent>
+          <p className="mb-4">
+            To explore our full documentation, please visit{' '}
+            <a
+              href={`${process.env.NEXT_PUBLIC_BACKEND_URL}/docs`} 
+              className="text-blue-500 underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              our API Docs
+            </a>.
+          </p>
           <Tabs defaultValue="python">
             <TabsList>
               <TabsTrigger value="python">Python</TabsTrigger>
@@ -220,64 +227,72 @@ export default function APIAccess() {
               <TabsTrigger value="curl">cURL</TabsTrigger>
             </TabsList>
             <TabsContent value="python" className="mt-4">
-              <pre className="bg-gray-800 p-4 rounded-lg overflow-x-auto">
-                <code className="text-sm text-white">
-                  {`import requests
+              <pre className="bg-gray-800 p-4 rounded-lg overflow-x-auto text-sm text-white">
+                {`import requests
 
-api_key = "YOUR_API_KEY"
-url = "https://api.otterflow.com/v1/process"
+api_url = "https://otterflow.in/api/chat/completion"
+api_key = "YOUR_API_KEY_HERE"
 
 payload = {
-    "prompt": "Translate the following English text to French: 'Hello, world!'",
-    "max_tokens": 60
+  "api_key": api_key,
+  "user_query": "Hello, how is life?",
+  "mode": "auto",
+  "cost_priority": 5,
+  "accuracy_priority": 5,
+  "latency_priority": 2,
+  "cost_max": 0.3,
+  "perf_min": 50,
+  "lat_max": 3
 }
 
-headers = {
-    "Authorization": f"Bearer {api_key}",
-    "Content-Type": "application/json"
-}
-
-response = requests.post(url, json=payload, headers=headers)
+response = requests.post(api_url, json=payload)
 print(response.json())`}
-                </code>
               </pre>
             </TabsContent>
             <TabsContent value="javascript" className="mt-4">
-              <pre className="bg-gray-800 p-4 rounded-lg overflow-x-auto">
-                <code className="text-sm text-white">
-                  {`const apiKey = 'YOUR_API_KEY';
-const url = 'https://api.otterflow.com/v1/process';
+              <pre className="bg-gray-800 p-4 rounded-lg overflow-x-auto text-sm text-white">
+                {`const apiUrl = "https://otterflow.in/api/chat/completion";
+const apiKey = "YOUR_API_KEY_HERE";
 
 const payload = {
-  prompt: "Translate the following English text to French: 'Hello, world!'",
-  max_tokens: 60
+  api_key: apiKey,
+  user_query: "Hello, how is life?",
+  mode: "auto",
+  cost_priority: 5,
+  accuracy_priority: 5,
+  latency_priority: 2,
+  cost_max: 0.3,
+  perf_min: 50,
+  lat_max: 3
 };
 
-fetch(url, {
-  method: 'POST',
-  headers: {
-    'Authorization': \`Bearer \${apiKey}\`,
-    'Content-Type': 'application/json'
-  },
+fetch(apiUrl, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
   body: JSON.stringify(payload)
 })
-  .then(response => response.json())
+  .then(res => res.json())
   .then(data => console.log(data))
-  .catch(error => console.error('Error:', error));`}
-                </code>
+  .catch(err => console.error('Error:', err));
+`}
               </pre>
             </TabsContent>
             <TabsContent value="curl" className="mt-4">
-              <pre className="bg-gray-800 p-4 rounded-lg overflow-x-auto">
-                <code className="text-sm text-white">
-                  {`curl -X POST https://api.otterflow.com/v1/process \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
+              <pre className="bg-gray-800 p-4 rounded-lg overflow-x-auto text-sm text-white">
+                {`curl -X POST "https://otterflow.in/api/chat/completion" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "prompt": "Translate the following English text to French: \\'Hello, world!\\'",
-    "max_tokens": 60
-  }'`}
-                </code>
+    "api_key": "YOUR_API_KEY_HERE",
+    "user_query": "Hello, how is life?",
+    "mode": "auto",
+    "cost_priority": 5,
+    "accuracy_priority": 5,
+    "latency_priority": 2,
+    "cost_max": 0.3,
+    "perf_min": 50,
+    "lat_max": 3
+  }'
+`}
               </pre>
             </TabsContent>
           </Tabs>

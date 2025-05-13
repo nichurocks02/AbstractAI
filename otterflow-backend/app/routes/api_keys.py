@@ -51,7 +51,7 @@ async def generate_api_key(
     if not wallet:
         raise HTTPException(status_code=400, detail="Wallet not found")
 
-    if wallet.balance < 100:  # $1.00 in cents
+    if wallet.balance < 5:  # $1.00 in cents
         raise HTTPException(status_code=400, detail="Insufficient balance in wallet")
 
     existing_api_key = db.query(APIKey).filter_by(user_id=user.id, api_name=api_name).first()
@@ -81,7 +81,7 @@ async def update_api_key_status(api_name: str, is_active: bool, db: Session = De
     if not api_key:
         raise HTTPException(status_code=404, detail="API key not found")
 
-    if is_active and user.wallet.balance < 0:
+    if is_active and user.wallet.balance < 5:
         raise HTTPException(status_code=402, detail="Insufficient wallet balance to activate the API key")
 
     api_key.is_active = is_active

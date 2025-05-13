@@ -102,6 +102,7 @@ async def admin_logout(response: Response):
         httponly=True,
         secure=True,
         samesite="none",
+        domain="localhost",
         path="/",
     )
     # Add no-cache headers to the response

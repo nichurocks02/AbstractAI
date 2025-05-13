@@ -50,7 +50,7 @@ async def request_demo(request: Request):
         raise HTTPException(status_code=400, detail="Name, email, and message are required.")
     
     # For now, send the demo request email to a predefined address.
-    admin_email = "nishkalrocks02@gmail.com"
+    admin_email = "ceo@otterflow.in"
     subject = f"Demo Request from {name}"
     body = f"Name: {name}\nEmail: {email}\nMessage:\n{message}"
     

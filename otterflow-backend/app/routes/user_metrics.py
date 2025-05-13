@@ -21,7 +21,7 @@ serializer = URLSafeSerializer(SESSION_SECRET_KEY, salt="session")
 SESSION_COOKIE_NAME = "session_id"
 
 
-@router.get("/metrics")
+@router.get("/metrics", include_in_schema=False)
 def dashboard_metrics(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),

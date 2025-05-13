@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Literal
 import time
@@ -250,3 +251,44 @@ async def chat_completion(
             }
         ]
     }
+
+
+
+# ----------------------------------------------------------------------
+# Model Catalog Endpoint, Accepting API Key in JSON Body
+# ----------------------------------------------------------------------
+class ModelCatalogRequest(BaseModel):
+    api_key: str
+
+@router.post("/model_catalog", summary="Model Catalog via POST")
+def model_catalog(
+    payload: ModelCatalogRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Fetches model catalog details from the database,
+    accepting the API key in the request body.
+    """
+    # Validate the API key from the request body
+    api_key_value = payload.api_key
+    api_key_record = db.query(APIKey).filter_by(key=api_key_value, is_active=True).first()
+    if not api_key_record:
+        raise HTTPException(status_code=401, detail="Invalid or inactive API key")
+
+    # We have a valid user if we want to check wallet or other conditions
+    user = api_key_record.user
+
+    # Query all models
+    db_models = db.query(ModelMetadata).all()
+    models = [
+        {
+            "id": str(m.id),
+            "name": m.model_name,
+            "cost": m.cost,
+            "latency": m.latency,
+            "performance": m.performance
+        }
+        for m in db_models
+    ]
+
+    return JSONResponse({"models": models})

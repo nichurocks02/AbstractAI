@@ -12,7 +12,7 @@ from app.routes.auth import get_current_user
 
 router = APIRouter(prefix="/query_log", tags=["Query Logs"])
 
-@router.get("/logs", summary="Get query logs and aggregated data")
+@router.get("/logs", summary="Get query logs and aggregated data", include_in_schema=False)
 def get_query_logs(
     start_date: Optional[str] = Query(None, description="Filter logs from this date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="Filter logs until this date (YYYY-MM-DD)"),

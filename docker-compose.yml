@@ -7,13 +7,12 @@ services:
       dockerfile: otterflow-backend/Dockerfile.backend
     volumes:
       - ./otterflow-backend:/app
-      # Not mounting certs here since backend runs HTTP
     env_file:
-      - .env
+      - .env.backend
     networks:
       - app-network
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
+  
   frontend:
     build:
       context: .
@@ -21,13 +20,17 @@ services:
     volumes:
       - ./otterflow-frontend:/app
     env_file:
-      - .env
+      - .env.frontend
     environment:
       - REACT_APP_BACKEND_URL=https://localhost/api
       - NEXT_PUBLIC_BACKEND_URL=https://localhost/api
     networks:
       - app-network
-    command: npm run dev
+    restart: always
+    command: sh -c "npm run build && npm run start"
+
+  # This service waits for 'backend' to start, then generates the Python + JS SDKs.
+
 
   nginx:
     image: nginx:latest
@@ -62,8 +65,10 @@ services:
       - pgadmin-data:/var/lib/pgadmin
     networks:
       - app-network
+
 networks:
   app-network:
     driver: bridge
+
 volumes:
   pgadmin-data:
