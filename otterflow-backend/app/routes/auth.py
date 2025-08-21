@@ -51,7 +51,7 @@ def send_welcome_email(user: User):
             We’re thrilled to have you on board. At OtterFlow, we help you route smarter, save faster, and deliver better results.
           </p>
           <p style="font-size: 14px; color: #333;">
-            Dive in to explore our cutting-edge AI routing features and experience seamless performance.
+            Dive in, to explore our cutting-edge AI routing features and experience seamless performance.
           </p>
           <p style="font-weight: bold; color: #2c7a7b;">Enjoy your journey with OtterFlow!</p>
           <p style="font-size: 14px; color: #555;">Warm regards,<br/>The OtterFlow Team</p>
@@ -227,7 +227,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
         httponly=True,
         secure=True,           # True for HTTPS
         samesite="none",
-        domain="localhost",    # Explicit domain if needed
+        domain=".otterflow.in",
         max_age=SESSION_COOKIE_MAX_AGE,
         path="/",
     )
@@ -588,7 +588,7 @@ async def logout(response: Response):
     response.delete_cookie(
         SESSION_COOKIE_NAME,
         path="/",
-        domain="localhost",   # Must match the login cookie
+        domain=".otterflow.in",
         samesite="none",
         secure=True
     )

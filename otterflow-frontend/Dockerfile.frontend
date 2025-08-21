@@ -1,26 +1,35 @@
-# Next.js Dockerfile for frontend (Dockerfile.frontend)
+# Stage 1: Build the Next.js application
+FROM node:18 AS builder
 
-# Use an official Node.js runtime as a parent image
-FROM node:18
-
-# Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json, then install dependencies
-COPY otterflow-frontend/package.json otterflow-frontend/package-lock.json /app/
+# Install dependencies
+COPY otterflow-frontend/package.json otterflow-frontend/package-lock.json ./
 RUN npm install
 
-# Copy the rest of the frontend files
-COPY otterflow-frontend/ /app/
+# Copy the rest of the application
+COPY otterflow-frontend/ ./
+
+# Build the Next.js app
+#RUN npm run build
+RUN npm run build > build.log 2>&1 && cat build.log
+# Stage 2: Serve with a lightweight web server
+FROM node:18-slim
+
+WORKDIR /app
+
+# Copy only necessary files from the builder stage
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
 
 # Expose the port Next.js will run on
 EXPOSE 3000
 
-# Set environment variables for frontend (Optional)
-# ENV NEXT_PUBLIC_API_URL=http://backend:8000
-#ENV NEXT_PUBLIC_BACKEND_URL=https://localhost:8000
-#ENV REACT_APP_BACKEND_URL=https://localhost:8000
-
-# Start the Next.js app in development mode
-CMD ["npm", "run", "dev"]
-
+# Set environment variables (adjust if needed)
+ENV NEXT_PUBLIC_BACKEND_URL=https://otterflow.in/api
+ENV REACT_APP_BACKEND_URL=https://otterflow.in/api
+ENV CI=false
+# Start the app in production mode
+CMD ["npm", "start"]

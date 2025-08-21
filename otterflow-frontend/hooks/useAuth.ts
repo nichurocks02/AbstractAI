@@ -16,11 +16,11 @@ interface AuthState {
 export default function useAuth(): AuthState {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
-
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const response = await fetch('https://localhost/api/auth/user', {
+        const response = await fetch(`${backendUrl}/auth/user`, {
           method: 'GET',
           credentials: 'include', // Include cookies
           mode: 'cors',

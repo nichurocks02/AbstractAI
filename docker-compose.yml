@@ -8,11 +8,11 @@ services:
     volumes:
       - ./otterflow-backend:/app
     env_file:
-      - .env.backend
+      - ./otterflow-backend/.env.backend
     networks:
       - app-network
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-  
+
   frontend:
     build:
       context: .
@@ -20,25 +20,22 @@ services:
     volumes:
       - ./otterflow-frontend:/app
     env_file:
-      - .env.frontend
+      - ./otterflow-backend/.env.backend
     environment:
-      - REACT_APP_BACKEND_URL=https://localhost/api
-      - NEXT_PUBLIC_BACKEND_URL=https://localhost/api
+      - REACT_APP_BACKEND_URL=https://otterflow.in/api
+      - NEXT_PUBLIC_BACKEND_URL=https://otterflow.in/api
     networks:
       - app-network
-    restart: always
-    command: sh -c "npm run build && npm run start"
-
-  # This service waits for 'backend' to start, then generates the Python + JS SDKs.
-
+    command: npm run dev
 
   nginx:
     image: nginx:latest
     ports:
+      - "80:80"
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./certs:/etc/nginx/certs:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - frontend
       - backend
