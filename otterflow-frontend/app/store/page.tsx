@@ -1,11 +1,23 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Image from 'next/image'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import Layout from '@/components/Layout'
 
 export default function StorePage() {
+  // State to control thank-you overlay
+  const [showThanks, setShowThanks] = useState(false)
+
+  const handleNotify = () => {
+    // Show thank-you overlay
+    setShowThanks(true)
+    // After 2 seconds, reload the page
+    setTimeout(() => {
+      window.location.reload()
+    }, 2000)
+  }
+
   return (
     <Layout>
       {/* Background with floating particles */}
@@ -91,12 +103,13 @@ export default function StorePage() {
               }}
               className="mb-8"
             >
-              <div className="relative w-32 h-32 rounded-full bg-white/20 backdrop-blur-md p-2">
+              <div className="relative w-40 h-40 rounded-full overflow-hidden bg-white/20 backdrop-blur-md p-2">
                 <Image
-                  src="/images/otter-character.png"           // <-- Use your local file here
+                  src="/images/otter-character.png"
                   alt="OtterFlow mascot"
                   fill
-                  className="object-contain p-2"
+                  style={{ objectFit: 'cover' }}
+                  className="p-2"
                 />
               </div>
             </motion.div>
@@ -144,13 +157,39 @@ export default function StorePage() {
                 placeholder="Enter your email"
                 className="flex-1 px-6 py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/30"
               />
-              <button className="px-8 py-3 rounded-full bg-white text-teal-600 font-semibold hover:bg-white/90 transition-colors">
+              <button 
+                onClick={handleNotify}
+                className="px-8 py-3 rounded-full bg-white text-teal-600 font-semibold hover:bg-white/90 transition-colors"
+              >
                 Notify Me
               </button>
             </motion.div>
           </div>
         </motion.div>
       </div>
+
+      {/* Thank-you Overlay */}
+      <AnimatePresence>
+        {showThanks && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.5 }}
+            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50"
+          >
+            <motion.div
+              className="bg-white p-8 rounded-lg shadow-lg"
+              initial={{ y: -20 }}
+              animate={{ y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <h2 className="text-2xl font-bold text-teal-600 mb-4">Thank You!</h2>
+              <p className="text-gray-700">We appreciate your interest. We'll notify you soon!</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Layout>
   )
 }

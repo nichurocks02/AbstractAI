@@ -5,7 +5,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Brain, Cpu, BarChart, Database, Zap } from 'lucide-react'
+import { ArrowRight, Brain, BarChart, Database, Zap } from 'lucide-react'
+import { SiDiscord } from "react-icons/si"
 import { motion, useAnimation, AnimatePresence } from 'framer-motion'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import { ToastContainer } from 'react-toastify' // Import ToastContainer
@@ -45,11 +46,12 @@ export default function LandingPage() {
             <Link className="text-sm font-medium hover:text-teal-400 transition-colors" href="#features">
               Features
             </Link>
-            <Link className="text-sm font-medium hover:text-teal-400 transition-colors" href="#pricing">
-              Pricing
+            <Link className="text-sm font-medium hover:text-teal-400 transition-colors" href="/enterprise" passHref>
+              Enterprise
             </Link>
-            <Link className="text-sm font-medium hover:text-teal-400 transition-colors" href="/onboarding">
-              Onboarding
+            {/* Discord Icon Link */}
+            <Link className="hover:opacity-80" title="Join our Discord" href="https://discord.gg/eYJw6yKD" passHref>
+              <SiDiscord className="h-5 w-5 text-teal-300" />
             </Link>
             <Link href="/auth" passHref>
               <Button variant="ghost" className="text-sm font-medium hover:text-teal-400 transition-colors">
@@ -104,55 +106,58 @@ export default function LandingPage() {
                   <Button variant="outline" className="bg-teal-600 text-white border-white hover:bg-white/20 dark:bg-teal-500 dark:hover:bg-teal-600" onClick={handleGetStarted}>
                     Get Started
                   </Button>
-                  <Button variant="outline" className="bg-teal-600 text-white border-white hover:bg-white/20 dark:border-teal-400 dark:text-teal-400 dark:hover:bg-teal-400/20">
-                    Learn More
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                  <Button
+                      variant="outline"
+                      className="bg-teal-600 text-white border-white hover:bg-white/20 dark:border-teal-400 dark:text-teal-400 dark:hover:bg-teal-400/20"
+                      onClick={() => window.location.href = '/onboarding'}
+                    >
+                      Take a Tour
+                      <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </motion.div>
               </div>
             </div>
           </section>
           <section id="features" className="w-full py-12 md:py-24 lg:py-32 bg-gradient-to-r from-teal-800 to-blue-800 dark:from-teal-900 dark:to-blue-900 backdrop-blur-md">
-            <div className="container px-4 md:px-6 mx-auto"> {/* Added mx-auto */}
+            <div className="container px-4 md:px-6 mx-auto">
               <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-center mb-8">Key Features</h2>
-              <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3 justify-items-center"> {/* Added justify-items-center */}
-                
-              <FeatureCard
-                  icon={<Brain className="h-10 w-10 text-teal-400" />}
-                  title="Intelligent Model Routing"
-                  description="Automatically selects the best LLM for each prompt, optimizing for cost, speed, and quality."
-                />
+              <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-2 justify-items-center">
                 
                 <FeatureCard
-                  icon={<Database className="h-10 w-10 text-teal-400" />}
-                  title="Local Model Utilization"
-                  description="Deploy small, efficient models locally for fast and secure handling of prompts."
+                  icon={<Brain className="h-10 w-10 text-teal-400" />}
+                  title="Intelligent Model Routing"
+                  description="Our platform adapts to your usage patterns using Reinforcement Learning, ensuring the best LLM selection for cost, speed, and quality."
                 />
+
+                <FeatureCard
+                  icon={<Database className="h-10 w-10 text-teal-400" />}
+                  title="Seamless Model Integration"
+                  description="Easily integrate and deploy any model—open-source or proprietary—according to your needs, ensuring flexibility and control."
+                />
+
                 <FeatureCard
                   icon={<BarChart className="h-10 w-10 text-blue-400" />}
                   title="Benchmarking & Caching"
-                  description="Ensures consistent, high-quality responses and reduces latency by reusing previous outputs."
+                  description="Ensures consistent, high-quality responses and reduces latency by intelligently caching and reusing previous outputs."
                 />
+
+                <FeatureCard
+                  icon={<BarChart className="h-10 w-10 text-teal-400" />}
+                  title="Intuitive Insights"
+                  description="Track real-time API usage, cost analysis, and performance metrics with interactive visual dashboards."
+                />
+
               </div>
             </div>
           </section>
-          <section id="testimonials" className="w-full py-12 md:py-24 lg:py-32 bg-blue-900/50 dark:bg-blue-950/50 backdrop-blur-md">
-            <div className="container px-4 md:px-6 mx-auto"> {/* Added mx-auto */}
-              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-center mb-8">What Our Users Say</h2>
-              <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 justify-items-center"> {/* Added justify-items-center */}
-                <TestimonialCard
-                  quote="OtterFlow has revolutionized our AI development process. We've seen a 40% reduction in costs and a significant boost in performance."
-                  author="Jane Doe, CTO at TechCorp"
-                />
-                <TestimonialCard
-                  quote="The flexibility and optimization provided by OtterFlow have allowed us to scale our AI operations efficiently."
-                  author="John Smith, AI Lead at InnovateCo"
-                />
-                <TestimonialCard
-                  quote="OtterFlow's intelligent routing and local model utilization have dramatically improved our response times and security."
-                  author="Alice Johnson, Head of AI Research at DataDynamics"
-                />
-              </div>
+          {/* Video Section*/}
+          <section id="product-video" className="w-full py-12 md:py-24 lg:py-32 bg-blue-900/50 dark:bg-blue-950/50 backdrop-blur-md">
+            <div className="container px-4 md:px-6 mx-auto text-center">
+              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl mb-8">See OtterFlow in Action</h2>
+              <video className="mx-auto rounded-lg shadow-lg" width="800" controls>
+                <source src="/Otterflow-Intro.mov" type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
             </div>
           </section>
           <section id="cta" className="w-full py-12 md:py-24 lg:py-32 bg-teal-800/50 dark:bg-teal-900/50 backdrop-blur-md">
@@ -227,7 +232,13 @@ export default function LandingPage() {
   )
 }
 
-function FeatureCard({ icon, title, description }) {
+interface FeatureCardProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}
+
+function FeatureCard({ icon, title, description }: FeatureCardProps) {
   return (
     <motion.div 
       initial={{ opacity: 0, y: 50 }}
@@ -242,16 +253,4 @@ function FeatureCard({ icon, title, description }) {
   )
 }
 
-function TestimonialCard({ quote, author }) {
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 50 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="rounded-lg border border-teal-400/20 bg-teal-800/30 dark:bg-teal-900/30 p-6 backdrop-blur-md"
-    >
-      <p className="mb-4 text-teal-100 dark:text-teal-200">{quote}</p>
-      <p className="font-semibold text-teal-300 dark:text-teal-400">{author}</p>
-    </motion.div>
-  )
-}
+

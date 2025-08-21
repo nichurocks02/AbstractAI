@@ -26,7 +26,7 @@ def no_cache_response(content: dict, status_code: int = 200) -> JSONResponse:
 # We'll assume a secret key is set in the environment
 WALLET_UPDATE_SECRET = os.getenv("WALLET_UPDATE_SECRET", "some-default-key")
 
-@router.get("/")
+@router.get("/",include_in_schema=False)
 def list_users(db: Session = Depends(get_db), admin: bool = Depends(get_current_admin)):
     """
     Return a list of all users with basic info:
@@ -56,7 +56,7 @@ def list_users(db: Session = Depends(get_db), admin: bool = Depends(get_current_
 
     return no_cache_response({"users": results})
 
-@router.get("/{user_id}")
+@router.get("/{user_id}",include_in_schema=False)
 def get_user_detail(user_id: int, db: Session = Depends(get_db), admin: bool = Depends(get_current_admin)):
     """
     Return user details:
@@ -84,7 +84,7 @@ def get_user_detail(user_id: int, db: Session = Depends(get_db), admin: bool = D
     }
     return no_cache_response({"user": data})
 
-@router.put("/{user_id}/balance")
+@router.put("/{user_id}/balance",include_in_schema=False)
 def update_user_balance(
     user_id: int,
     db: Session = Depends(get_db),

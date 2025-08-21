@@ -1,4 +1,4 @@
-import React from 'react'
+import React from "react";
 import {
   LineChart as RechartsLineChart,
   Line,
@@ -12,15 +12,15 @@ import {
   PieChart as RechartsPieChart,
   Pie,
   Cell,
-} from 'recharts'
+} from "recharts";
 
 interface ChartProps {
-  data: any[]
-  xAxis?: string
-  yAxis?: string
+  data: any[];
+  xAxis?: string;
+  yAxis?: string;
 }
 
-export const LineChart: React.FC<ChartProps> = ({ data, xAxis, yAxis }) => (
+export const LineChart: React.FC<ChartProps> = ({ data, xAxis = "", yAxis = "" }) => (
   <ResponsiveContainer width="100%" height={300}>
     <RechartsLineChart data={data}>
       <CartesianGrid strokeDasharray="3 3" />
@@ -30,21 +30,21 @@ export const LineChart: React.FC<ChartProps> = ({ data, xAxis, yAxis }) => (
       <Line type="monotone" dataKey={yAxis} stroke="#8884d8" />
     </RechartsLineChart>
   </ResponsiveContainer>
-)
+);
 
-export const BarChart: React.FC<ChartProps> = ({ data, xAxis, yAxis }) => (
+export const BarChart: React.FC<ChartProps> = ({ data, xAxis = "", yAxis = "" }) => (
   <ResponsiveContainer width="100%" height={300}>
     <RechartsBarChart data={data}>
       <CartesianGrid strokeDasharray="3 3" />
       <XAxis dataKey={xAxis} />
       <YAxis />
       <Tooltip />
-      <Bar dataKey={yAxis} fill="#8884d8" />
+      <Bar dataKey={yAxis} fill="#8884d8" /> {/* ✅ Fixed: `yAxis` now has a default value */}
     </RechartsBarChart>
   </ResponsiveContainer>
-)
+);
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042']
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
 export const PieChart: React.FC<ChartProps> = ({ data }) => (
   <ResponsiveContainer width="100%" height={300}>
@@ -65,5 +65,4 @@ export const PieChart: React.FC<ChartProps> = ({ data }) => (
       <Tooltip />
     </RechartsPieChart>
   </ResponsiveContainer>
-)
-
+);

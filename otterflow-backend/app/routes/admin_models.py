@@ -26,7 +26,7 @@ def no_cache_response(content: dict, status_code: int = 200) -> JSONResponse:
     response.headers["Surrogate-Control"] = "no-store"
     return response
 
-@router.get("/list", response_model=List[ModelInDB])
+@router.get("/list", response_model=List[ModelInDB],include_in_schema=False)
 def get_all_models(db: Session = Depends(get_db), admin: bool = Depends(get_current_admin)):
     """
     Returns all models in the database.
@@ -34,7 +34,7 @@ def get_all_models(db: Session = Depends(get_db), admin: bool = Depends(get_curr
     models = db.query(ModelMetadata).all()
     return models
 
-@router.post("/create", response_model=ModelInDB, status_code=status.HTTP_201_CREATED)
+@router.post("/create", response_model=ModelInDB, status_code=status.HTTP_201_CREATED,include_in_schema=False)
 def create_model(
     model_data: ModelCreate,
     db: Session = Depends(get_db),
@@ -69,7 +69,7 @@ def create_model(
     db.refresh(new_model)
     return new_model
 
-@router.put("/update/{model_id}", response_model=ModelInDB)
+@router.put("/update/{model_id}", response_model=ModelInDB,include_in_schema=False)
 def update_model(
     model_id: int,
     update_data: ModelUpdate,
@@ -121,7 +121,7 @@ def update_model(
     db.refresh(model)
     return model
 
-@router.delete("/delete/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/delete/{model_id}", status_code=status.HTTP_204_NO_CONTENT,include_in_schema=False)
 def delete_model(model_id: int, db: Session = Depends(get_db), admin: bool = Depends(get_current_admin)):
     """
     Delete a model from the database.
@@ -133,7 +133,7 @@ def delete_model(model_id: int, db: Session = Depends(get_db), admin: bool = Dep
     db.commit()
     return
 
-@router.get("/usage-stats")
+@router.get("/usage-stats",include_in_schema=False)
 def get_model_usage_stats(db: Session = Depends(get_db), admin: bool = Depends(get_current_admin)):
     """
     Return usage statistics for each model, such as total queries, total tokens, total cost, etc.

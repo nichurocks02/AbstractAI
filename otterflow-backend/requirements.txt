@@ -76,8 +76,6 @@ passlib
 pillow
 pip
 psycopg2-binary
-pgvector
-pgvector-sqlalchemy
 python-multipart
 propcache
 pydantic
@@ -99,6 +97,7 @@ scipy
 secure-smtplib
 setuptools
 six
+smart_cache_package
 sniffio
 soupsieve
 sqlalchemy

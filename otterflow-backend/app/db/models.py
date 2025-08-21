@@ -1,6 +1,6 @@
 # app/db/models.py
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime,Text, Float
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime,Text, Float, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime, timezone
@@ -109,6 +109,7 @@ class QueryLog(Base):
     cost_preference = Column(Integer,nullable=False)        # User's input cost preference
     latency_preference = Column(Integer,nullable=False)     # User's latency preference
     performance_preference = Column(Integer,nullable=False) # User's performance preference
+    cache_hit = Column(Boolean, default=False)              # Cache hit 
 
     user = relationship("User", back_populates="query_logs")
 
@@ -125,3 +126,27 @@ class Email(Base):
     sent_by = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     sender = relationship("User")
+
+
+class UserBanditStats(Base):
+    """
+    Stores bandit stats per user, per model, per domain.
+    """
+    __tablename__ = "user_bandit_stats"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    model_name = Column(String, nullable=False)
+    domain_label = Column(String, nullable=False)
+
+    cumulative_reward = Column(Float, default=0.0)
+    count = Column(Integer, default=0)
+    sum_rewards_squared = Column(Float, default=0.0)  # NEW FIELD
+
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "model_name", "domain_label", name="user_model_domain_uc"),
+    )
+
+    user = relationship("User")

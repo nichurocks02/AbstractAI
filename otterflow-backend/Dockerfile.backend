@@ -13,25 +13,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the entire backend directory to the container
 COPY otterflow-backend/ /app/
 
-# Copy the .env file to the working directory
-COPY .env /app/
-
 # Expose the port FastAPI will run on
 EXPOSE 8000
 
-# Set environment variables for FastAPI (Optional, if you have any)
-ENV GOOGLE_CLIENT_ID="915597781700-pbe7iebq0r0iu1ie3etpj8s7hh5mqvo4.apps.googleusercontent.com"
-ENV GOOGLE_CLIENT_SECRET="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"
-ENV GOOGLE_REDIRECT_URI = "http://localhost:8000/auth/google"
-ENV STRIPE_SECRET_KEY = "sk_test_51Pvd2003R2gGtdrr5PktsuA9RrQjHSt06QScx0nV6eItGeSEsf2MHA910fNA4rp1MnArJkr3CwWGS5hkghdInpHo00d9YGV3FK"
-ENV POSTGRES_DB=abstractai
-ENV POSTGRES_USER=abstract_user_admin
-ENV POSTGRES_PASSWORD=hello1234
-ENV POSTGRES_HOST=db
-ENV POSTGRES_PORT=5432
-ENV DATABASE_URL=postgresql://abstract_user_admin:hello1234@db:5432/abstractai
-ENV EMAIL_ADDRESS="nishkalrocks02@gmail.com"
-ENV EMAIL_PASSWORD="ievg cdty pkxo yyos"
+
 
 # Run FastAPI with Uvicorn, enable auto-reload for development
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

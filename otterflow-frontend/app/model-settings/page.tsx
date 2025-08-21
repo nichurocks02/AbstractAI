@@ -2,15 +2,17 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
+import { X } from 'react-feather'
+
+// UI components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { AnimatePresence, motion } from "framer-motion"
 import Layout from '@/components/Layout'
-import ModelSettingsForm from '@/components/ModelSettingsForm'
 import useAuth from '@/hooks/useAuth'
 
+// Model interface
 interface Model {
   id: string
   name: string
@@ -20,6 +22,122 @@ interface Model {
   isIncluded: boolean
 }
 
+// Modal form component with slider inputs and a graphic background
+const ModelSettingsForm = ({
+  model,
+  onClose,
+  onUpdate,
+}: {
+  model: Model
+  onClose: () => void
+  onUpdate: (modelId: string, temperature: number, top_p: number) => void
+}) => {
+  // Guard clause (should never be hit if used correctly)
+  if (!model) return null
+
+  const [temperature, setTemperature] = useState(model.temperature)
+  const [topP, setTopP] = useState(model.top_p)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onUpdate(model.id, temperature, topP)
+  }
+
+  // Animation variants for backdrop and modal
+  const backdropVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1 },
+  }
+
+  const modalVariants = {
+    hidden: { opacity: 0, scale: 0.8, y: -50 },
+    visible: { opacity: 1, scale: 1, y: 0 },
+    exit: { opacity: 0, scale: 0.8, y: -50 },
+  }
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
+        variants={backdropVariants}
+        initial="hidden"
+        animate="visible"
+        exit="hidden"
+      >
+        <motion.div
+          className="relative rounded-lg shadow-2xl w-full max-w-md p-6 overflow-hidden"
+          variants={modalVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          transition={{ duration: 0.3 }}
+        >
+          {/* Graphic background overlay using an external placeholder image */}
+          <div className="absolute inset-0 bg-[url('https://picsum.photos/800/600?grayscale')] bg-cover bg-center opacity-30" />
+          <div className="relative z-10">
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+              aria-label="Close settings"
+            >
+              <X size={20} />
+            </button>
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-gray-800">{model.name} Settings</h2>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-6">
+                {/* Temperature Slider */}
+                <div>
+                  <Label htmlFor="temperature" className="block text-sm font-medium text-black-700">
+                    Temperature: <span className="font-bold">{temperature.toFixed(1)}</span>
+                  </Label>
+                  <input
+                    id="temperature"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={temperature}
+                    onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+                {/* Top K Slider */}
+                <div>
+                  <Label htmlFor="topP" className="block text-sm font-medium text-black-700">
+                    Top K: <span className="font-bold">{topP.toFixed(1)}</span>
+                  </Label>
+                  <input
+                    id="topP"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={topP}
+                    onChange={(e) => setTopP(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end space-x-3">
+                <Button type="button" onClick={onClose} className="bg-gray-500 hover:bg-gray-600">
+                  Cancel
+                </Button>
+                <Button type="submit" className="bg-teal-600 hover:bg-teal-700">
+                  Save
+                </Button>
+              </div>
+            </form>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
+
+// Main Model Settings component
 export default function ModelSettings() {
   const { user, loading } = useAuth()
   const router = useRouter()
@@ -131,11 +249,6 @@ export default function ModelSettings() {
               <CardHeader>
                 <CardTitle className="flex justify-between items-center">
                   <span>{model.name}</span>
-                  <Switch
-                    checked={model.isIncluded}
-                    onCheckedChange={() => toggleModel(model.id)}
-                    onClick={(e) => e.stopPropagation()}
-                  />
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-grow">
@@ -143,7 +256,8 @@ export default function ModelSettings() {
               </CardContent>
               <CardContent className="pt-0">
                 <Label className="flex items-center space-x-2">
-                  <span>Include in OtterFlow</span>
+                  {/* Uncomment the Switch below if you want inline toggling */}
+                  {/* <Switch checked={model.isIncluded} onChange={() => toggleModel(model.id)} /> */}
                 </Label>
               </CardContent>
             </Card>

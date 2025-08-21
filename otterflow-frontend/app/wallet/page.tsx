@@ -20,6 +20,7 @@ export default function Wallet() {
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/wallet/balance`, {
           credentials: 'include',
+          mode: 'cors',
         })
 
         if (response.ok) {
@@ -56,6 +57,7 @@ export default function Wallet() {
           amount,
           token: 'dummy-token'  // Replace with actual payment token if integrated
         }),
+        mode: 'cors',
       })
 
       if (response.ok) {

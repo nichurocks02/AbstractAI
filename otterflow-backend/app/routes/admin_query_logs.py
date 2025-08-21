@@ -28,7 +28,7 @@ def no_cache_response(content: dict, status_code: int = 200) -> JSONResponse:
     response.headers["Surrogate-Control"] = "no-store"
     return response
 
-@router.get("/all-logs")
+@router.get("/all-logs",include_in_schema=False)
 def get_query_logs(
     startDate: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
     endDate: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
@@ -91,7 +91,7 @@ def get_query_logs(
     # Return the data with no-cache headers
     return no_cache_response({"logs": data})
 
-@router.get("/users/names", response_model=List[str])
+@router.get("/users/names", response_model=List[str],include_in_schema=False)
 def get_user_names(
     db: Session = Depends(get_db),
     admin: bool = Depends(get_current_admin)  # admin-only dependency

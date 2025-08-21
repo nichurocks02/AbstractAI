@@ -4,31 +4,56 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from "@/components/ui/button"
-import { ArrowRight, X } from 'lucide-react'
+import { ArrowRight, ArrowLeft, X } from 'lucide-react'
 import AnimatedBackground from '@/components/AnimatedBackground'
 
+// Updated tutorial steps with emojis and revised text
 const tutorialSteps = [
   {
-    title: "Welcome to OtterFlow",
-    description: "Let's take a quick tour of the key features that will help you optimize your AI development process.",
+    title: "🚀 Welcome to OtterFlow",
+    description:
+      "Welcome! OtterFlow streamlines your AI development by intelligently routing your queries and optimizing performance. Let's begin the tour.",
   },
   {
-    title: "Intelligent Model Routing",
-    description: "OtterFlow automatically selects the best LLM for each prompt, optimizing for cost, speed, and quality.",
+    title: "🤖 Intelligent Model Routing",
+    description:
+      "Our system uses reinforcement learning to select the best model for your prompt—balancing cost, speed, and quality.",
   },
   {
-    title: "Algorithmic Enhancements",
-    description: "We incorporate advanced techniques like Chain of Thought and Mixture of Agents to improve performance.",
+    title: "🎯 Bandit-Based Optimization",
+    description:
+      "We employ a multi-armed bandit algorithm that continuously learns from your feedback, refining its choices over time.",
   },
   {
-    title: "Local Model Utilization",
-    description: "Deploy small, efficient models locally for fast and secure handling of prompts.",
+    title: "⏱ Benchmarking & Caching",
+    description:
+      "By benchmarking performance and caching responses, OtterFlow ensures fast, reliable, and high-quality outputs.",
   },
   {
-    title: "Benchmarking & Caching",
-    description: "We ensure consistent, high-quality responses and reduce latency by reusing previous outputs.",
+    title: "✨ Get Started & Explore",
+    description:
+      "You're all set! Dive into OtterFlow to experience intelligent routing and continuous improvement. Enjoy your journey!",
   },
 ]
+
+// Framer Motion container variants for staggering children animations
+const containerVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      when: "beforeChildren",
+      staggerChildren: 0.2,
+    },
+  },
+}
+
+// Item variants for each flash card (step)
+const itemVariants = {
+  hidden: { opacity: 0, x: -10 },
+  visible: { opacity: 1, x: 0 },
+}
 
 export default function OnboardingTutorial() {
   const [currentStep, setCurrentStep] = useState(0)
@@ -38,13 +63,19 @@ export default function OnboardingTutorial() {
     if (currentStep < tutorialSteps.length - 1) {
       setCurrentStep(currentStep + 1)
     } else {
-      handleSkip()
+      handleFinish()
     }
   }
 
-  const handleSkip = () => {
-    // Navigate to the main dashboard or wherever you want users to go after onboarding
-    router.push('/dashboard')
+  const handlePrevious = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1)
+    }
+  }
+
+  const handleFinish = () => {
+    // Navigate to the main dashboard or authentication page after onboarding
+    router.push('/auth')
   }
 
   return (
@@ -68,26 +99,39 @@ export default function OnboardingTutorial() {
                 {tutorialSteps[currentStep].description}
               </p>
               <div className="flex justify-between items-center">
+                {/* Previous Button */}
                 <Button
                   variant="ghost"
-                  onClick={handleSkip}
-                  className="text-teal-300 hover:text-teal-100 hover:bg-teal-800/50"
+                  onClick={handlePrevious}
+                  disabled={currentStep === 0}
+                  className="bg-teal-600 hover:bg-teal-700 text-white flex items-center"
                 >
-                  Skip
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Previous
                 </Button>
-                <Button
-                  onClick={handleNext}
-                  className="bg-teal-600 hover:bg-teal-700 text-white"
-                >
-                  {currentStep < tutorialSteps.length - 1 ? (
-                    <>
-                      Next
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  ) : (
-                    "Finish"
-                  )}
-                </Button>
+                {/* Skip Button and Next/Finish Button grouped together */}
+                <div className="flex space-x-2">
+                  <Button
+                    variant="ghost"
+                    onClick={handleFinish}
+                    className="text-teal-300 hover:text-teal-100 hover:bg-teal-800/50"
+                  >
+                    Skip
+                  </Button>
+                  <Button
+                    onClick={handleNext}
+                    className="bg-teal-600 hover:bg-teal-700 text-white flex items-center"
+                  >
+                    {currentStep < tutorialSteps.length - 1 ? (
+                      <>
+                        Next
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    ) : (
+                      "Finish"
+                    )}
+                  </Button>
+                </div>
               </div>
             </motion.div>
           </AnimatePresence>
@@ -107,7 +151,7 @@ export default function OnboardingTutorial() {
         variant="ghost"
         size="icon"
         className="absolute top-4 right-4 text-teal-300 hover:text-teal-100 hover:bg-teal-800/50"
-        onClick={handleSkip}
+        onClick={handleFinish}
       >
         <X className="h-6 w-6" />
         <span className="sr-only">Close tutorial</span>
@@ -115,4 +159,3 @@ export default function OnboardingTutorial() {
     </div>
   )
 }
-

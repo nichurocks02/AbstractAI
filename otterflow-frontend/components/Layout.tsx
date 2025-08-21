@@ -1,4 +1,4 @@
-// Layout.tsx
+"use client"
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -6,23 +6,27 @@ import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { LayoutDashboard, Key, Gamepad2, Settings, Wallet, LogOut, Cog, Store } from 'lucide-react'
+import { LayoutDashboard, Key, Gamepad2, Settings, Wallet, LogOut, Cog, Store, BarChart } from 'lucide-react'
 import { ToastContainer, toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, link: '/dashboard' },
-  { id: 'api', label: 'API Access', icon: Key, link: '/api-access' },
   { id: 'playground', label: 'Playground', icon: Gamepad2, link: '/playground' },
+  {id: "metrics",label: "Metrics",icon: BarChart,link: "/metrics",tooltip: "View detailed metrics and analytics"},
   { id: 'model-settings', label: 'Model Settings', icon: Cog, link: '/model-settings' },
+  { id: 'api', label: 'API Access', icon: Key, link: '/api-access' },
   { id: 'settings', label: 'User Settings', icon: Settings, link: '/user-settings' },
   { id: 'wallet', label: 'Wallet', icon: Wallet, link: '/wallet' },
+  
   { id: 'store', label: 'Otter Store', icon: Store, link: '/store' },
+
 ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(true)
   const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [avatarCacheBuster] = useState(() => Date.now())
   const pathname = usePathname()
   const router = useRouter()
@@ -35,23 +39,36 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           credentials: 'include',
           mode: 'cors',
         })
-        console.log('Cookies sent with request:', document.cookie); 
+        console.log('Cookies sent with request:', document.cookie)
 
         if (response.ok) {
           const userData = await response.json()
           setUser(userData)
         } else {
-          toast.error('Failed to fetch user data')
-          console.error('Failed to fetch user data:', response.statusText)
+          // If not authenticated, redirect to /auth page
+          toast.error('Not authenticated. Redirecting to login page.')
+          router.replace('/auth')
         }
       } catch (error) {
-        toast.error('Error fetching user data')
-        console.error('Error fetching user data:', error)
+        toast.error('Error fetching user data. Redirecting to login page.')
+        router.replace('/auth')
+      } finally {
+        setLoading(false)
       }
     }
 
     fetchUser()
-  }, [])
+  }, [router])
+
+  // Show a simple loading state while verifying authentication
+  if (loading) {
+    return <div className="flex h-screen items-center justify-center">Loading...</div>
+  }
+
+  // If user is still null after loading, render nothing (this should rarely occur)
+  if (!user) {
+    return null
+  }
 
   const handleLogout = async () => {
     try {
@@ -96,7 +113,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <AvatarImage
                     src={
                       user.avatar
-                        // 2) Use the stable cacheBuster
                         ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/${user.avatar}?t=${avatarCacheBuster}`
                         : `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/default-avatar?name=${encodeURIComponent(user.name || "")}&t=${avatarCacheBuster}`
                     }
@@ -121,7 +137,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               onClick={() => setIsOpen(!isOpen)}
               className="text-white hover:bg-teal-700/50"
             >
-              {isOpen ? <Key className="h-4 w-4" /> : <Key className="h-4 w-4" />}
+              <Key className="h-4 w-4" />
             </Button>
           </div>
 

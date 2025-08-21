@@ -8,24 +8,23 @@ from app.db.models import User
 from itsdangerous import URLSafeSerializer, BadSignature
 from datetime import datetime, timezone, timedelta
 from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI
 
 router = APIRouter(
     prefix="/admin",
     tags=["AdminAuth"]
 )
 
-# Load admin credentials from .env or environment variables
+# Load admin credentials from environment variables (or use defaults)
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@otterflow.com")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "supersecret")
 
-# Session-related
+# Session-related settings
 ADMIN_SESSION_SECRET = os.getenv("ADMIN_SESSION_SECRET", "admin-session-secret-key")
 ADMIN_SESSION_COOKIE = "admin_session_id"
-SESSION_EXPIRE_HOURS = 3  # shorter for better security
+SESSION_EXPIRE_HOURS = 3  # For improved security, sessions expire in 3 hours
 
-serializer = URLSafeSerializer(ADMIN_SESSION_SECRET, salt="admin-session")
+# Create a serializer with a fixed salt
+serializer = URLSafeSerializer(ADMIN_SESSION_SECRET, salt="admin-session-secret-key")
 
 def create_admin_session_token() -> str:
     """Generate a session token with expiration."""
@@ -37,7 +36,7 @@ def create_admin_session_token() -> str:
     return serializer.dumps(session_data)
 
 def verify_admin_session_token(session_token: str):
-    """Verify the session token is valid and not expired."""
+    """Verify that the session token is valid and not expired."""
     try:
         data = serializer.loads(session_token)
         if data.get("admin") != True:
@@ -50,10 +49,11 @@ def verify_admin_session_token(session_token: str):
 def get_current_admin(request: Request):
     """Dependency to protect admin routes."""
     session_token = request.cookies.get(ADMIN_SESSION_COOKIE)
+    # Debug print to help ensure the cookie is received
+    print("DEBUG: Received admin session cookie:", session_token)
     if not session_token:
         raise HTTPException(status_code=401, detail="Not authenticated for admin")
     verify_admin_session_token(session_token)
-    # If we get here, token is valid. Return True or some admin object if needed.
     return True
 
 def get_admin_user(db: Session = Depends(get_db)) -> User:
@@ -66,64 +66,57 @@ def get_admin_user(db: Session = Depends(get_db)) -> User:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorized")
     return admin_user
 
-@router.post("/login")
+@router.post("/login",include_in_schema=False)
 async def admin_login(request: Request, response: Response, db: Session = Depends(get_db)):
     data = await request.json()
     email = data.get("email")
     password = data.get("password")
 
-    # Validate against env credentials
+    # Validate credentials against environment variables
     if email == ADMIN_EMAIL and password == ADMIN_PASSWORD:
         token = create_admin_session_token()
-        response = JSONResponse({"message": "Admin login successful"})
+        resp = JSONResponse({"message": "Admin login successful"})
         
-        # Determine if we're in production
-        ENV = os.getenv("ENV", "development")
-        secure_flag = True if ENV == "production" else False
-
-        response.set_cookie(
+        # Since your site will be served over HTTPS via Nginx,
+        # we use secure=True, samesite="none", and path="/" so that
+        # the cookie is accessible on all routes.
+        resp.set_cookie(
             key=ADMIN_SESSION_COOKIE,
             value=token,
-            httponly=True,           # disallow JavaScript access
-            secure=secure_flag,      # set True in production (HTTPS)
-            samesite="strict",      
-            path="/",
+            httponly=True,       # Prevent JavaScript access to the cookie
+            secure=True,         # Ensure cookie is sent only over HTTPS
+            samesite="none",      # Allow cross-site cookie usage if needed
+            path="/",            # Cookie is available on all routes
             max_age=SESSION_EXPIRE_HOURS * 3600,
         )
-        return response
+        return resp
     else:
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
 
-@router.post("/logout")
+@router.post("/logout",include_in_schema=False)
 async def admin_logout(response: Response):
     """Clear the admin session cookie."""
-    response = JSONResponse({"message": "Admin logout successful"})
-    
-    # Determine if we're in production
-    ENV = os.getenv("ENV", "development")
-    secure_flag = True if ENV == "production" else False
-
-    response.delete_cookie(
+    resp = JSONResponse({"message": "Admin logout successful"})
+    resp.delete_cookie(
         key=ADMIN_SESSION_COOKIE,
-        httponly=True,             
-        secure=secure_flag,               
-        samesite="strict",         
-        path="/"                   
+        httponly=True,
+        secure=True,
+        samesite="none",
+        domain="localhost",
+        path="/",
     )
-    # Also ensure no-cache headers
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    response.headers["Surrogate-Control"] = "no-store"
-    return response
+    # Add no-cache headers to the response
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
-# Example protected route
-@router.get("/secret-admin-data")
+@router.get("/secret-admin-data",include_in_schema=False)
 def secret_admin_data(admin: bool = Depends(get_current_admin)):
-    """Any route that depends on get_current_admin is admin-protected."""
+    """A sample protected admin route."""
     return {"secret": "This is top-secret admin data."}
 
-@router.get("/verify")
+@router.get("/verify",include_in_schema=False)
 def admin_verify(admin: bool = Depends(get_current_admin)):
     """Endpoint to verify admin session."""
     return {"authenticated": True}
